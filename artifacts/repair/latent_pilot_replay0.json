@@ -1,0 +1,266 @@
+{
+  "batch_size": 2,
+  "elapsed_seconds": 95.95435166358948,
+  "exposure_by_record": {
+    "rec_01338160f7532c3b9b6e": 2,
+    "rec_339f0a35b42740b84486": 2,
+    "rec_8ef8214158df288d85a9": 2,
+    "rec_a3e62bfe21a5da4c9266": 2,
+    "rec_afadfa96d343617b9084": 2,
+    "rec_dae9faf407100e76ef02": 2
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 2,
+    "dspy/propose/utils.py": 2,
+    "tests/adapters/test_tool.py": 2,
+    "tests/clients/test_cache.py": 2,
+    "tests/primitives/test_python_interpreter.py": 4
+  },
+  "gradient_accumulation_steps": 1,
+  "losses": [
+    5.76536226272583,
+    4.01837682723999,
+    1.1842104196548462,
+    4.193809986114502,
+    3.872421145439148,
+    3.6980892419815063
+  ],
+  "objective_diagnostics_after": {
+    "combined": 4.671245098114014,
+    "query": 4.470073223114014,
+    "rank": 0.201171875,
+    "record_id": "rec_339f0a35b42740b84486"
+  },
+  "objective_diagnostics_before": {
+    "combined": 5.76536226272583,
+    "query": 5.13254976272583,
+    "rank": 0.6328125,
+    "record_id": "rec_339f0a35b42740b84486"
+  },
+  "replay_exposure_by_source": {},
+  "replay_fraction": 0.0,
+  "replay_source_imbalance": {
+    "max": 0,
+    "max_to_min_ratio": 0.0,
+    "mean": 0.0,
+    "min": 0,
+    "population_stdev": 0.0,
+    "range": 0,
+    "sources": 5
+  },
+  "serialized_bytes": 50732,
+  "shards": [
+    {
+      "current_source_loss": 2.882681131362915,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 2.125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 2.125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        },
+        "previous_recent_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "dspy/dsp/utils/utils.py"
+    },
+    {
+      "current_source_loss": 2.009188413619995,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 2.0,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        },
+        "previous_early_sources": {
+          "margin": 2.0,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 2.0,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "dspy/propose/utils.py"
+    },
+    {
+      "current_source_loss": 0.5921052098274231,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 1.875,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        },
+        "previous_early_sources": {
+          "margin": 1.875,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/adapters/test_tool.py"
+    },
+    {
+      "current_source_loss": 2.096904993057251,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 3.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 4.625,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 2.125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/clients/test_cache.py"
+    },
+    {
+      "current_source_loss": 1.8926275968551636,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 5.25,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 6.25,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 2.75,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 6.75,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/primitives/test_python_interpreter.py"
+    }
+  ],
+  "skipped_preferences": 0,
+  "source_exposure_imbalance": {
+    "max": 4,
+    "max_to_min_ratio": 2.0,
+    "mean": 2.4,
+    "min": 2,
+    "population_stdev": 0.8,
+    "range": 2,
+    "sources": 5
+  },
+  "started": 1789054639.3603036,
+  "training_peak_memory_bytes": 33870068224
+}

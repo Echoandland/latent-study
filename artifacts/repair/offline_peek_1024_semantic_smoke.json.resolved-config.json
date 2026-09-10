@@ -1,0 +1,81 @@
+{
+  "candidate_generation": {
+    "n": 4,
+    "source": "frozen_base_without_latent"
+  },
+  "config_hash": "11e9f93c4f9a4f32444f62ba6810dd40ceeba1f1bf32c357c48fff34052ce920",
+  "config_source": "/nas03/yucheng/latent-study/configs/dspy_mvp.json",
+  "corpus": {
+    "authorized_roots": [
+      "data/corpus/dspy"
+    ],
+    "evaluation_roots": [
+      "data/evaluation/studybench"
+    ],
+    "repository": "https://github.com/stanfordnlp/dspy.git",
+    "revision": "9cdb0aac28b2a04b064e40697ccd301872cf6a43"
+  },
+  "decoding": {
+    "do_sample": false,
+    "max_new_tokens_per_turn": 128,
+    "temperature": 0.0
+  },
+  "evaluation": {
+    "conditions": [
+      "no_study",
+      "random_latent_L64",
+      "trained_latent_L64",
+      "offline_peek_64",
+      "offline_peek_1024"
+    ],
+    "memory_frozen": true,
+    "same_tools_and_budgets": true
+  },
+  "latent": {
+    "init_std": 0.02,
+    "length": 64
+  },
+  "model": {
+    "dtype": "bfloat16",
+    "frozen": true,
+    "id": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+  },
+  "objective": {
+    "beta": 1.0,
+    "preference_delta": 0.25,
+    "query_weight": 1.0,
+    "rank_margin": 1.0,
+    "ranking_weight": 1.0
+  },
+  "protocol": "offline_machine_studying",
+  "replay": {
+    "fraction": 0.5,
+    "keep_full_bank": true,
+    "source_stratified": true
+  },
+  "reward": {
+    "semantic_distance_enabled": false,
+    "within_document_positional_distance_enabled": false
+  },
+  "root_agent": {
+    "max_observation_bytes": 6000,
+    "max_output_tokens": 1000,
+    "max_tool_calls": 5,
+    "prompt_revision": "local-coding-agent-v2"
+  },
+  "seed": 17,
+  "tools": {
+    "grep_context_lines": 4,
+    "interface": "pinned_local_coding_tools_v2",
+    "max_bytes_per_hit": 1600,
+    "max_results": 5,
+    "max_total_bytes": 6000
+  },
+  "training": {
+    "batch_size": 2,
+    "gradient_accumulation_steps": 1,
+    "learning_rate": 0.001,
+    "steps_per_source": 2
+  }
+}

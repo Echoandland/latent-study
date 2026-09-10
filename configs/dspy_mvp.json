@@ -12,19 +12,26 @@
     "authorized_roots": ["data/corpus/dspy"],
     "evaluation_roots": ["data/evaluation/studybench"]
   },
+  "seed": 17,
   "latent": {"length": 64, "init_std": 0.02},
   "candidate_generation": {"n": 4, "source": "frozen_base_without_latent"},
-  "search": {"max_results": 5, "max_bytes_per_hit": 1600, "max_total_bytes": 6000},
+  "tools": {"interface": "pinned_local_coding_tools_v2", "max_results": 5,
+    "max_bytes_per_hit": 1600, "max_total_bytes": 6000, "grep_context_lines": 4},
   "reward": {
     "semantic_distance_enabled": false,
     "within_document_positional_distance_enabled": false
   },
-  "objective": {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0, "lambda_rank": 1.0},
+  "objective": {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0,
+    "query_weight": 1.0, "ranking_weight": 1.0},
   "replay": {"fraction": 0.5, "source_stratified": true, "keep_full_bank": true},
+  "training": {"learning_rate": 0.001, "steps_per_source": 2, "batch_size": 2,
+    "gradient_accumulation_steps": 1},
+  "decoding": {"do_sample": false, "temperature": 0.0, "max_new_tokens_per_turn": 128},
+  "root_agent": {"prompt_revision": "local-coding-agent-v2", "max_tool_calls": 5,
+    "max_output_tokens": 1000, "max_observation_bytes": 6000},
   "evaluation": {
     "conditions": ["no_study", "random_latent_L64", "trained_latent_L64", "offline_peek_64", "offline_peek_1024"],
     "memory_frozen": true,
     "same_tools_and_budgets": true
   }
 }
-

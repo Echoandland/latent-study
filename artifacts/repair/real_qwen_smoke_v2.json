@@ -1,0 +1,59 @@
+{
+  "actual_train_path": {
+    "final_loss": 1.6461908221244812,
+    "updates": 2
+  },
+  "all_lm_parameters_frozen": true,
+  "cache_equivalence": {
+    "continuation_tokens": 4,
+    "max_abs_error": 0.0,
+    "observation_tokens": 44,
+    "passed": true,
+    "per_step_max_abs_error": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "tolerance": 0.0,
+    "tolerance_basis": "Qwen3.5 torch DeltaNet uses explicit full-recompute fallback"
+  },
+  "controlled_overfit": {
+    "combined": {
+      "after": 1.9798189401626587,
+      "before": 1.7529034614562988,
+      "query_after": 1.8372408151626587,
+      "rank_after": 0.142578125
+    },
+    "query_only": {
+      "after": 1.5959314107894897,
+      "before": 1.6528058052062988
+    },
+    "rank_only": {
+      "after": 0.054931640625,
+      "before": 0.10009765625
+    },
+    "steps_per_control": 2
+  },
+  "gpu_peak_memory_bytes": 30632481280,
+  "hidden_size": 4096,
+  "hybrid_state_mode": "full_recompute",
+  "latent_length": 3,
+  "latent_serialized_bytes": 50564,
+  "lm_parameters_bitwise_unchanged": true,
+  "model": "Qwen/Qwen3.5-9B",
+  "model_load_seconds": 7.202557465061545,
+  "optimizer_step_changed_prefix": true,
+  "prefix_insertions": 1,
+  "process_peak_rss_kib": 18444768,
+  "ranking_forward_backward_prefix_gradient_nonzero": true,
+  "ranking_labels": {
+    "A": 32,
+    "B": 33
+  },
+  "reload_reference": "artifacts/checkpoints/repair_smoke_l3.pt.reference.pt",
+  "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "scope": "strengthened real-model smoke; synthetic corpus only",
+  "total_seconds": 86.12059411592782
+}

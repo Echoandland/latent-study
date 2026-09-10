@@ -13,6 +13,8 @@ class PrefixState:
     next_logits: object
     total_length: int
     prefix_insertions: int = 1
+    input_ids: object | None = None
+    cache_mode: str = "native"
 
 
 class SoftPrefixLM:
@@ -43,12 +45,8 @@ class SoftPrefixLM:
             raise RuntimeError("base LM parameter unexpectedly trainable")
 
     def chat_ids(self, messages, *, add_generation_prompt: bool = True):
-        import torch
-        ids = self.tokenizer.apply_chat_template(messages, tokenize=True,
-                                                 add_generation_prompt=add_generation_prompt,
-                                                 return_tensors="pt")
-        if hasattr(ids, "keys"):
-            ids = ids["input_ids"]
+        from .agent import serialize_chat_ids
+        ids = serialize_chat_ids(self.tokenizer, messages, add_generation_prompt=add_generation_prompt)
         return ids.to(self.prefix.device)
 
     def _supported(self, kwargs: dict) -> dict:
@@ -71,17 +69,19 @@ class SoftPrefixLM:
                                   "use_cache": use_cache, "return_dict": True,
                                   "logits_to_keep": 1})
         output = self.model(**kwargs)
-        return PrefixState(output.past_key_values if use_cache else None, attention,
-                           output.logits[:, -1, :], total, 1)
+        mode = ("full_recompute" if getattr(self.model.config, "model_type", "").startswith("qwen3_5")
+                else "native")
+        return PrefixState(output.past_key_values if use_cache and mode == "native" else None, attention,
+                           output.logits[:, -1, :], total, 1, input_ids.detach(), mode)
 
     def append_ids(self, state: PrefixState, input_ids) -> PrefixState:
-        # Qwen3.5's hybrid DeltaNet consumes its recurrent cache only for a
-        # single-token cached forward. A multi-token cached chunk would reset
-        # the recurrent state (Transformers 5.3 modeling_qwen3_5.py).
-        if getattr(self.model.config, "model_type", "") == "qwen3_5" and input_ids.shape[1] > 1:
-            for index in range(input_ids.shape[1]):
-                state = self._append_block(state, input_ids[:, index:index + 1])
-            return state
+        # Transformers 5.3's torch fallback for Qwen3.5 DeltaNet produces
+        # materially different logits for recurrent-cache vs chunk recompute.
+        # Until an equivalent kernel is available, retain exact token history
+        # and recompute. This is slower but prevents silently invalid results.
+        if state.cache_mode == "full_recompute":
+            if state.input_ids is None: raise RuntimeError("Qwen recompute state lost token history")
+            return self.prefill_ids(__import__("torch").cat((state.input_ids, input_ids), dim=1), use_cache=False)
         return self._append_block(state, input_ids)
 
     def _append_block(self, state: PrefixState, input_ids) -> PrefixState:
@@ -99,8 +99,10 @@ class SoftPrefixLM:
                                   "past_key_values": state.past_key_values, "use_cache": True,
                                   "return_dict": True, "logits_to_keep": 1})
         output = self.model(**kwargs)
+        history = (__import__("torch").cat((state.input_ids, input_ids), dim=1)
+                   if state.input_ids is not None else None)
         return PrefixState(output.past_key_values, attention, output.logits[:, -1, :],
-                           state.total_length + count, 1)
+                           state.total_length + count, 1, history, state.cache_mode)
 
     def generate_from_state(self, state: PrefixState, *, max_new_tokens: int,
                             temperature: float = 0.0, generator=None):
@@ -182,7 +184,8 @@ class SoftPrefixLM:
 
 
 def load_qwen(model_path: str, *, length: int = 64, dtype: str = "bfloat16",
-              revision: str | None = None, device: str | None = None) -> SoftPrefixLM:
+              revision: str | None = None, device: str | None = None,
+              init_std: float = 0.02) -> SoftPrefixLM:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
     dtype_value = getattr(torch, dtype)
@@ -193,4 +196,4 @@ def load_qwen(model_path: str, *, length: int = 64, dtype: str = "bfloat16",
                                                  revision=revision)
     if model.config.model_type.lower() not in {"qwen3_5", "qwen3_5_text"}:
         raise ValueError(f"MVP requires qwen3_5, got {model.config.model_type}")
-    return SoftPrefixLM(model, tokenizer, length)
+    return SoftPrefixLM(model, tokenizer, length, init_std=init_std)

@@ -1,0 +1,546 @@
+[
+  {
+    "evidence_span": {
+      "chunk_id": "unit_001ba3cd1725807042a3",
+      "end_line": 101,
+      "source_path": "dspy/dsp/utils/utils.py",
+      "start_line": 101,
+      "text": "class dotdict(dict):  # noqa: N801",
+      "text_hash": "46281f8003599b27ea674038053b2178fc6b211db825bd80d2db33b2b4c79017"
+    },
+    "gold_chunk_id": "unit_001ba3cd1725807042a3",
+    "probe_id": "probe_75e52aea9efa68f70d8d",
+    "prompt": "Locate the evidence that establishes `dotdict`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/dsp/utils/utils.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_002876159f2e49c6a64f"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_002876159f2e49c6a64f",
+      "end_line": 466,
+      "source_path": "tests/primitives/test_python_interpreter.py",
+      "start_line": 465,
+      "text": "def test_extract_parameters_complex_types():\n    \"\"\"Test that _extract_parameters handles complex types gracefully.\"\"\"",
+      "text_hash": "beb5e3b2993ac646ee936ba7b0ae59cc04d5c0aa3be3481ebad0809ed0723264"
+    },
+    "gold_chunk_id": "unit_002876159f2e49c6a64f",
+    "probe_id": "probe_3392b605336bab3bf5d6",
+    "prompt": "Locate the evidence that establishes `test_extract_parameters_complex_types`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/primitives/test_python_interpreter.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0060686553535a2f5e9d",
+      "end_line": 170,
+      "source_path": "tests/clients/test_cache.py",
+      "start_line": 169,
+      "text": "def test_reset_memory_cache(cache):\n    \"\"\"Test resetting memory cache.\"\"\"",
+      "text_hash": "9fc32348e63d2fbb0c7496c86dcd33c51c46caa25626303934cd5df8a8734e72"
+    },
+    "gold_chunk_id": "unit_0060686553535a2f5e9d",
+    "probe_id": "probe_0edcd3e39e0b7d71d0c7",
+    "prompt": "Locate the evidence that establishes `test_reset_memory_cache`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/clients/test_cache.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_00df70452dc54b8454f1",
+      "end_line": 59,
+      "source_path": "dspy/propose/utils.py",
+      "start_line": 58,
+      "text": "def parse_list_of_instructions(instruction_string):\n    # Try to convert the string representation of a list to an actual list using JSON",
+      "text_hash": "5e95eff902a0b1f4dda24637c4873f990f83a8382278044e4e7165bb2dca861c"
+    },
+    "gold_chunk_id": "unit_00df70452dc54b8454f1",
+    "probe_id": "probe_331af4e90bc9c21d2ddc",
+    "prompt": "Locate the evidence that establishes `parse_list_of_instructions`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/propose/utils.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_00e888de5dcdcd78e6e1",
+      "end_line": 18,
+      "source_path": "tests/adapters/test_tool.py",
+      "start_line": 12,
+      "text": "def dummy_function(x: int, y: str = \"hello\") -> str:\n    \"\"\"A dummy function for testing.\n\n    Args:\n        x: An integer parameter\n        y: A string parameter\n    \"\"\"",
+      "text_hash": "76b6556114866c3e4dbd584b35fde3b6acc941156e9c455d27830a2efcf81f10"
+    },
+    "gold_chunk_id": "unit_00e888de5dcdcd78e6e1",
+    "probe_id": "probe_94a2b1b87fe627c74d02",
+    "prompt": "Locate the evidence that establishes `dummy_function`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/adapters/test_tool.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_00ebc8aeb211f1a7ba38",
+      "end_line": 216,
+      "source_path": "tests/primitives/test_python_interpreter.py",
+      "start_line": 215,
+      "text": "def test_serialize_tuple():\n    \"\"\"Test that tuples can be serialized as variables.\"\"\"",
+      "text_hash": "638e50661c00402217238ca2900f97ec533885cc7ba5b664f5acf2a301107ccf"
+    },
+    "gold_chunk_id": "unit_00ebc8aeb211f1a7ba38",
+    "probe_id": "probe_1df1c40b832e612b3156",
+    "prompt": "Locate the evidence that establishes `test_serialize_tuple`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/primitives/test_python_interpreter.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_00ecaf69be339d134a37",
+      "end_line": 134,
+      "source_path": "tests/clients/test_lm.py",
+      "start_line": 134,
+      "text": "def test_rollout_id_bypasses_cache(monkeypatch, tmp_path):",
+      "text_hash": "88c5bcd754eb45d74bd4de76292dd216b571d75e7d6f3d3a64466a4920fc0a30"
+    },
+    "gold_chunk_id": "unit_00ecaf69be339d134a37",
+    "probe_id": "probe_983a7b7c15f5d63e6c20",
+    "prompt": "Locate the evidence that establishes `test_rollout_id_bypasses_cache`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/clients/test_lm.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_010edfb23f3d2df95baf",
+      "end_line": 403,
+      "source_path": "tests/adapters/test_chat_adapter.py",
+      "start_line": 402,
+      "text": "def test_code_output_field_omits_json_schema_in_prompt():\n    \"\"\"Regression test for #9251: dspy.Code should avoid duplicating large JSON schema text.\"\"\"",
+      "text_hash": "53515c660df186071d29f725604cd6dc2b1fbdd5b7b7789172c65aa4dd52f0fc"
+    },
+    "gold_chunk_id": "unit_010edfb23f3d2df95baf",
+    "probe_id": "probe_1162fe12abde6f760ac6",
+    "prompt": "Locate the evidence that establishes `test_code_output_field_omits_json_schema_in_prompt`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/adapters/test_chat_adapter.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_01126c7748457c96d17d",
+      "end_line": 1,
+      "source_path": "dspy/utils/dummies.py",
+      "start_line": 1,
+      "text": "import random",
+      "text_hash": "7e18ed429647e8cb5bad80cc3f560145c21e332c8c8733f8416d89ded1ac49bd"
+    },
+    "gold_chunk_id": "unit_01126c7748457c96d17d",
+    "probe_id": "probe_ee57d54b2b0e69bc1558",
+    "prompt": "Locate the evidence that establishes `module@1`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/utils/dummies.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_002876159f2e49c6a64f"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0115a94dfe2d71097651",
+      "end_line": 92,
+      "source_path": "docs/docs/tutorials/yahoo_finance_react/index.md",
+      "start_line": 88,
+      "text": "## Step 3: Build the Financial ReAct Agent\n\n```python\nclass FinancialAnalysisAgent(dspy.Module):\n    \"\"\"ReAct agent for financial analysis using Yahoo Finance data.\"\"\"",
+      "text_hash": "8dfced5553484a2d660642ce5f358d16e38213c947c8f5af4f0805b0f37712ae"
+    },
+    "gold_chunk_id": "unit_0115a94dfe2d71097651",
+    "probe_id": "probe_e50631510e9d61552fc0",
+    "prompt": "Locate the evidence that establishes `Step 3: Build the Financial ReAct Agent`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/tutorials/yahoo_finance_react/index.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_011cc9f135bac7717728",
+      "end_line": 46,
+      "source_path": "tests/teleprompt/test_knn_fewshot.py",
+      "start_line": 45,
+      "text": "def _test_knn_few_shot_compile(setup_knn_few_shot):\n    \"\"\"Tests the compile method of KNNFewShot with SimpleModule as student.\"\"\"",
+      "text_hash": "dc9e44350fd5e2bba8aeb3fc1a578119dcf9be9208a17330d7f62edb2a6d384a"
+    },
+    "gold_chunk_id": "unit_011cc9f135bac7717728",
+    "probe_id": "probe_3a486a4ee3b2c72827eb",
+    "prompt": "Locate the evidence that establishes `_test_knn_few_shot_compile`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/teleprompt/test_knn_fewshot.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_016066498053ae9907df",
+      "end_line": 1285,
+      "source_path": "tests/predict/test_predict.py",
+      "start_line": 1284,
+      "text": "def test_nested_dict_type_validation(caplog):\n    \"\"\"Test type validation with dict key and value types.\"\"\"",
+      "text_hash": "e27db545bfd7ed59f34ceefec930d912d05eb2c148a3ca206382e1d005faa08a"
+    },
+    "gold_chunk_id": "unit_016066498053ae9907df",
+    "probe_id": "probe_e157020fbc7548411e16",
+    "prompt": "Locate the evidence that establishes `test_nested_dict_type_validation`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/predict/test_predict.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0163103f557cb947e329",
+      "end_line": 1,
+      "source_path": "dspy/predict/aggregation.py",
+      "start_line": 1,
+      "text": "from dspy.evaluate import normalize_text",
+      "text_hash": "0e00ce2ea8ef9087abb8ff49ae2cc9861cde7d826d21c38cf2ee8ebcd62042f2"
+    },
+    "gold_chunk_id": "unit_0163103f557cb947e329",
+    "probe_id": "probe_3277b5b1d578aedd756e",
+    "prompt": "Locate the evidence that establishes `module@1`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/predict/aggregation.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_016889c63e3b6361966b",
+      "end_line": 43,
+      "source_path": "tests/teleprompt/test_ensemble.py",
+      "start_line": 42,
+      "text": "def test_ensemble_with_size_limitation():\n    \"\"\"Test that specifying a size limits the number of programs used in the ensemble.\"\"\"",
+      "text_hash": "98897c1562045bb99c5b8fb62a366147d1320d01dc673ecf7e12b58f1f902280"
+    },
+    "gold_chunk_id": "unit_016889c63e3b6361966b",
+    "probe_id": "probe_6fcade934835906bcfd3",
+    "prompt": "Locate the evidence that establishes `test_ensemble_with_size_limitation`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/teleprompt/test_ensemble.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_018d5fdb7f21d00c8b74",
+      "end_line": 25,
+      "source_path": ".github/.internal_dspyai/internals/release-checklist.md",
+      "start_line": 23,
+      "text": "### Prerequisites\n\nThe automation requires a [trusted publisher](https://docs.pypi.org/trusted-publishers/) to be set up on both the pypi and test-pypi packages. If the package is migrated to a new project, please follow the [steps](https://docs.pypi.org/trusted-publishers/adding-a-publisher/) to create a trusted publisher. If you have no releases on the new project, you may have to create a [pending trusted publisher](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/) to allow the first automated deployment.",
+      "text_hash": "35d26f5464bae9da8403eea7facd7bc2391ef5d8c8d8819aeb3b42c1e7c01ee5"
+    },
+    "gold_chunk_id": "unit_018d5fdb7f21d00c8b74",
+    "probe_id": "probe_29b332a2f4f92eb33803",
+    "prompt": "Locate the evidence that establishes `Prerequisites`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": ".github/.internal_dspyai/internals/release-checklist.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0199d73ceaa5ca82ed18",
+      "end_line": 190,
+      "source_path": "dspy/dsp/utils/utils.py",
+      "start_line": 187,
+      "text": "def process_grouped_by_first_item(lst):\n    \"\"\"\n    Requires items in list to already be grouped by first item.\n    \"\"\"",
+      "text_hash": "2a1f15a524f048ec888c67e0571670eec13a2682ba048dbfc41bd93503a2999a"
+    },
+    "gold_chunk_id": "unit_0199d73ceaa5ca82ed18",
+    "probe_id": "probe_09b9f2d202360436dcf4",
+    "prompt": "Locate the evidence that establishes `process_grouped_by_first_item`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/dsp/utils/utils.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_019ae5f4f9e263a6b85c",
+      "end_line": 226,
+      "source_path": "docs/docs/learn/programming/signatures.md",
+      "start_line": 223,
+      "text": "# This will trigger a warning because we're passing a string instead of an int\npredictor(number=\"42\")  # Warning: Type mismatch for field 'number': expected int, but provided value is incompatible\n```\n**Disabling Type Checking**",
+      "text_hash": "3445ca9c401b95823be0d4967e05789c31dff2c767601289d2ae5da600e741b1"
+    },
+    "gold_chunk_id": "unit_019ae5f4f9e263a6b85c",
+    "probe_id": "probe_1fe3f9451849ef3fc4c4",
+    "prompt": "Locate the evidence that establishes `This will trigger a warning because we're passing a string instead of an int`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/learn/programming/signatures.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_01aa193160d378c537ad",
+      "end_line": 11,
+      "source_path": "docs/docs/tutorials/streaming/index.md",
+      "start_line": 9,
+      "text": "## Output Token Streaming\n\nDSPy's token streaming feature works with any module in your pipeline, not just the final output. The only requirement is that the streamed field must be of type `str`. To enable token streaming:",
+      "text_hash": "b83891729f4c0a677d3fb4156ef6fdb52a75f8483c7a8906230c27f848d83b8b"
+    },
+    "gold_chunk_id": "unit_01aa193160d378c537ad",
+    "probe_id": "probe_ef1a31dac917c369eccc",
+    "prompt": "Locate the evidence that establishes `Output Token Streaming`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/tutorials/streaming/index.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_01b3f309f8c7724f8a94",
+      "end_line": 16,
+      "source_path": "dspy/primitives/example.py",
+      "start_line": 4,
+      "text": "class Example:\n    \"\"\"A flexible data container for DSPy examples and training data with named fields.\n\n    An `Example` is roughly one row from a HuggingFace dataset or pandas\n    `DataFrame`. It behaves a lot like a dictionary or dot-access record: you\n    can read fields with `example[\"question\"]` or `example.question`.\n\n    In DSPy, lists of `Example` objects are your trainset, devset, and testset.\n    Most examples are built from keyword arguments or an existing record, then\n    tagged with `with_inputs(...)` to say which fields should be fed into a\n    module. The remaining fields are labels or metadata.\n\n    When you write evaluation code, custom optimizers, or training loops, use",
+      "text_hash": "888eb2d2825c94f7dd42bc66eea413af8ca90aabf8080c925550bd3add7f45bb"
+    },
+    "gold_chunk_id": "unit_01b3f309f8c7724f8a94",
+    "probe_id": "probe_c6c1e53ef6b44774d306",
+    "prompt": "Locate the evidence that establishes `Example`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/primitives/example.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_01f0cdc1c6e640230033",
+      "end_line": 20,
+      "source_path": "dspy/teleprompt/gepa/gepa_utils.py",
+      "start_line": 20,
+      "text": "class LoggerAdapter:",
+      "text_hash": "d8cf911d708b6765bb8fcff7402412381d3439b827cde8d57b1a2cb2ec97a3d0"
+    },
+    "gold_chunk_id": "unit_01f0cdc1c6e640230033",
+    "probe_id": "probe_ad5011f6660a0002f717",
+    "prompt": "Locate the evidence that establishes `LoggerAdapter`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "dspy/teleprompt/gepa/gepa_utils.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_01fb130c7ff6372032de",
+      "end_line": 57,
+      "source_path": "docs/docs/api/optimizers/MIPROv2.md",
+      "start_line": 55,
+      "text": "## How `MIPROv2` works\n\nAt a high level, `MIPROv2` works by creating both few-shot examples and new instructions for each predictor in your LM program, and then searching over these using Bayesian Optimization to find the best combination of these variables for your program.  If you want a visual explanation check out this [twitter thread](https://x.com/michaelryan207/status/1804189184988713065).",
+      "text_hash": "1cab022a4f61553a3944cffa57a8df722ded7a5d9af65c7d7afa6f9a3953f53f"
+    },
+    "gold_chunk_id": "unit_01fb130c7ff6372032de",
+    "probe_id": "probe_3a8eec2b5fc3dae7f569",
+    "prompt": "Locate the evidence that establishes `How `MIPROv2` works`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/api/optimizers/MIPROv2.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0204d52dc5e2b72ffa73",
+      "end_line": 226,
+      "source_path": "docs/docs/tutorials/llms_txt_generation/index.md",
+      "start_line": 222,
+      "text": "## Key Concepts\n- **Modules**: Building blocks for LM programs\n- **Signatures**: Input/output specifications  \n- **Teleprompters**: Optimization algorithms\n- **Predictors**: Core reasoning components",
+      "text_hash": "925baf536835a54014b387af86e7b1616b3dc2a18899f994dd24f01878f881ba"
+    },
+    "gold_chunk_id": "unit_0204d52dc5e2b72ffa73",
+    "probe_id": "probe_47f115a012642ae33f16",
+    "prompt": "Locate the evidence that establishes `Key Concepts`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/tutorials/llms_txt_generation/index.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_02359f437eb63d266023",
+      "end_line": 11,
+      "source_path": "docs/docs/learn/programming/mcp.md",
+      "start_line": 9,
+      "text": "## Installation\n\nInstall DSPy with MCP support:",
+      "text_hash": "3fbf11e2e7a600125e464066b0f24a546af09bbcb3eecf97ec25dfbdd81c57e0"
+    },
+    "gold_chunk_id": "unit_02359f437eb63d266023",
+    "probe_id": "probe_5f550408583be53e0887",
+    "prompt": "Locate the evidence that establishes `Installation`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/learn/programming/mcp.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0259e262bbdeabe068f8",
+      "end_line": 74,
+      "source_path": "tests/reliability/complex_types/generated/test_many_types_1/program.py",
+      "start_line": 74,
+      "text": "class LiteralField(Enum):",
+      "text_hash": "e9796bf98c8eba84fabefe15c5205f2e252f84650a8b5418b7591042c256ab7b"
+    },
+    "gold_chunk_id": "unit_0259e262bbdeabe068f8",
+    "probe_id": "probe_76a418423b1ae26c22c1",
+    "prompt": "Locate the evidence that establishes `LiteralField`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/reliability/complex_types/generated/test_many_types_1/program.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0281680f8bb04f6d0c38",
+      "end_line": 619,
+      "source_path": "tests/reliability/generate/utils.py",
+      "start_line": 609,
+      "text": "def _json_input_to_program_input(input_schema: pydantic.BaseModel, json_input: str) -> dict[str, Any]:\n    \"\"\"\n    Convert a JSON input string to a DSPy program input dictionary, validating it against the\n    provided program signature.\n\n    Args:\n        input_schema: A pydantic model representing the program input schema.\n        json_input: The JSON input string to convert to a DSPy program input.\n    Returns:\n        The converted DSPy program input dictionary.\n    \"\"\"",
+      "text_hash": "b910963b63aa0e688dfdaad26dc76dc50a96a62baff1dd8572199e5e5dcf2176"
+    },
+    "gold_chunk_id": "unit_0281680f8bb04f6d0c38",
+    "probe_id": "probe_3e754a61d9c6628a8912",
+    "prompt": "Locate the evidence that establishes `_json_input_to_program_input`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/reliability/generate/utils.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_02874cfb42e9ffbf6aa4",
+      "end_line": 1231,
+      "source_path": "tests/streaming/test_streaming.py",
+      "start_line": 1231,
+      "text": "class ComplexResponse(pydantic.BaseModel):",
+      "text_hash": "567f79afdd3377dc8f6341e3d665c0cc4185c2f4a99d1c3201677fbc3a082a05"
+    },
+    "gold_chunk_id": "unit_02874cfb42e9ffbf6aa4",
+    "probe_id": "probe_58f9bf093214a890e653",
+    "prompt": "Locate the evidence that establishes `ComplexResponse`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/streaming/test_streaming.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_02aa78ae24066008bd6f",
+      "end_line": 136,
+      "source_path": "tests/predict/test_parallel.py",
+      "start_line": 136,
+      "text": "def test_nested_batch_method():",
+      "text_hash": "5871f32f56ce91bbcf7130f93482f8c7343c8c1d0f9ef408c637a933bade036b"
+    },
+    "gold_chunk_id": "unit_02aa78ae24066008bd6f",
+    "probe_id": "probe_4a8d9e0088dd4d6ab8b6",
+    "prompt": "Locate the evidence that establishes `test_nested_batch_method`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/predict/test_parallel.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_02ae2fe5dd98e100285c",
+      "end_line": 352,
+      "source_path": "tests/adapters/test_json_adapter.py",
+      "start_line": 352,
+      "text": "def test_json_adapter_formats_image_with_few_shot_examples_with_nested_images():",
+      "text_hash": "24d762a68a272d5ee6a48154d146c873a602968d9d5d6d13b83f136525f11da6"
+    },
+    "gold_chunk_id": "unit_02ae2fe5dd98e100285c",
+    "probe_id": "probe_5aa0a98e9c29b8055868",
+    "prompt": "Locate the evidence that establishes `test_json_adapter_formats_image_with_few_shot_examples_with_nested_images`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/adapters/test_json_adapter.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_02c18c2e6e4f940a7a17",
+      "end_line": 146,
+      "source_path": "tests/reliability/utils.py",
+      "start_line": 146,
+      "text": "def get_adapter(reliability_conf: ReliabilityTestConf) -> dspy.Adapter:",
+      "text_hash": "32af88064d391fec31369778e7c1b37a27364e2f9a28343a5081ab5152c7800b"
+    },
+    "gold_chunk_id": "unit_02c18c2e6e4f940a7a17",
+    "probe_id": "probe_77fd805dac5258f02f98",
+    "prompt": "Locate the evidence that establishes `get_adapter`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/reliability/utils.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_02f1acf1f9f8b3090a6b",
+      "end_line": 93,
+      "source_path": "docs/docs/tutorials/async/index.md",
+      "start_line": 92,
+      "text": "# Create a tool from the async function\ntool = dspy.Tool(foo)",
+      "text_hash": "ad66175e0fa7d40313dda2da3f1fef7e014b99f4ec10d6cb66f99af736f7182a"
+    },
+    "gold_chunk_id": "unit_02f1acf1f9f8b3090a6b",
+    "probe_id": "probe_c21e928a9a27296384c0",
+    "prompt": "Locate the evidence that establishes `Create a tool from the async function`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "docs/docs/tutorials/async/index.md",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_0314f8652e4febed40a9",
+      "end_line": 15,
+      "source_path": "tests/utils/test_langchain_tool.py",
+      "start_line": 15,
+      "text": "async def test_convert_custom_simple_tool():",
+      "text_hash": "90ea378f5eae2c05e434c2084a185a07f6ef99614a02dba2780db14f6d8cb830"
+    },
+    "gold_chunk_id": "unit_0314f8652e4febed40a9",
+    "probe_id": "probe_e4561f68a26ac7442790",
+    "prompt": "Locate the evidence that establishes `test_convert_custom_simple_tool`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/utils/test_langchain_tool.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  },
+  {
+    "evidence_span": {
+      "chunk_id": "unit_031a189182b0bb6ed2e7",
+      "end_line": 154,
+      "source_path": "tests/adapters/test_chat_adapter.py",
+      "start_line": 151,
+      "text": "def test_chat_adapter_signature_information():\n    \"\"\"\n    This test ensures that the signature information sent to the LM follows an expected format.\n    \"\"\"",
+      "text_hash": "24f78207a19fe1995ffc61fbd89bec561b8c58c3b650654dd3f7955dcf7efb22"
+    },
+    "gold_chunk_id": "unit_031a189182b0bb6ed2e7",
+    "probe_id": "probe_ea3d57bca3360a3a9fc8",
+    "prompt": "Locate the evidence that establishes `test_chat_adapter_signature_information`.",
+    "provenance": "deduplicated held-out prompt within same corpus",
+    "source_id": "tests/adapters/test_chat_adapter.py",
+    "template_id": "probe-v2",
+    "verified_negative_chunk_id": "unit_001ba3cd1725807042a3"
+  }
+]

@@ -31,5 +31,6 @@ def record_from_dict(value: dict) -> StudyRecord:
                        candidate_actions=actions, outcomes=tuple(outcomes),
                        validation=value["validation"], corpus_hash=value["corpus_hash"],
                        source_hash=value["source_hash"], template_id=value["template_id"],
-                       random_seed=value["random_seed"], weak_label=value.get("weak_label", False))
-
+                       random_seed=value["random_seed"], weak_label=value.get("weak_label", False),
+                       observation_action=(ToolAction(**value["observation_action"])
+                                           if value.get("observation_action") else None))

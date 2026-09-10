@@ -36,7 +36,7 @@ def test_deterministic_manifest_records_negatives_rewards_and_replay(tmp_path):
     records1 = generate_coverage_records(one["units"], one["corpus_hash"], seed=7)
     records2 = generate_coverage_records(two["units"], two["corpus_hash"], seed=7)
     assert [r.to_dict() for r in records1] == [r.to_dict() for r in records2]
-    assert all(r.validation["negative_method"] == "distinct_ast_definition" for r in records1)
+    assert all(r.validation["negative_method"] == "distinct_definition_no_symbol_overlap" for r in records1)
     assert all(r.verified_negative_chunk_ids for r in records1)
     validate_study_bank(records1, one["corpus_hash"])
     with pytest.raises(IsolationError): validate_study_bank(records1, "wrong")
@@ -61,7 +61,7 @@ def test_visible_evidence_after_truncation_and_group_reward(tmp_path):
     assert truncated.visible_group_ids == ()
     assert truncated.reward_components["exact_visible_hit"] == 0
     assert truncated.reward_components["first_valid_rank"] == 0
-    search = CorpusSearch(manifest["units"], SearchLimits(5, 2000, 4000))
+    search = CorpusSearch(manifest["units"], SearchLimits(5, 2000, 4000, grep_context_lines=1))
     valid, hits, observation = search.execute(ToolAction("alpha"))
     complete = score_action(ToolAction("alpha"), valid, hits, observation, (group_a,))
     assert complete.visible_group_ids == ("a",)
@@ -83,7 +83,7 @@ def test_isolation_tool_parser_and_fairness(tmp_path):
     enforce_study_inputs([source], corpus_root=corpus, evaluation_root=evaluation)
     with pytest.raises(IsolationError):
         enforce_study_inputs([exam], corpus_root=corpus, evaluation_root=evaluation)
-    text = 'first {"tool":"search","query":"alpha","max_results":2}\nthen {"tool":"search","query":"beta"}'
+    text = 'first {"tool":"grep","query":"alpha","max_results":2}\nthen {"tool":"grep","query":"beta"}'
     assert [a.query for a in parse_tool_actions(text)] == ["alpha", "beta"]
     budget = InferenceBudget(5, 1000, 6000)
     a = Condition("none", "none", None, budget, {"max_results": 5})
@@ -91,6 +91,9 @@ def test_isolation_tool_parser_and_fairness(tmp_path):
     assert_fair_conditions([a, b])
     with pytest.raises(ValueError):
         assert_fair_conditions([a, Condition("bad", "map", None, InferenceBudget(6, 1000, 6000), {"max_results": 5})])
+    with pytest.raises(ValueError):
+        assert_fair_conditions([a, Condition("bad_revision", "map", None, budget, {"max_results": 5},
+                                             model_revision="different")])
 
 
 def test_official_expertise_worked_example_and_best_so_far():

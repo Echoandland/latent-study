@@ -1,0 +1,587 @@
+{
+  "batches": [
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_25cfbde3029729873547",
+        "rec_c3d8e87fe0d467d9da26"
+      ],
+      "source": ".github/.internal_dspyai/internals/release-checklist.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_38d8ae2ce18d3fad6483",
+        "rec_25cfbde3029729873547"
+      ],
+      "source": "docs/docs/api/optimizers/MIPROv2.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5fddc576a8e13dfa15ba",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "docs/docs/learn/programming/mcp.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_2a94cd86cb771d6fa0ea",
+        "rec_5fddc576a8e13dfa15ba"
+      ],
+      "source": "docs/docs/learn/programming/signatures.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c21651437cd0087ba3ec",
+        "rec_2a94cd86cb771d6fa0ea"
+      ],
+      "source": "docs/docs/tutorials/llms_txt_generation/index.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d88986ce897debe7dbb0",
+        "rec_c21651437cd0087ba3ec"
+      ],
+      "source": "docs/docs/tutorials/streaming/index.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_e8de64cbf35a0fee881e",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "docs/docs/tutorials/yahoo_finance_react/index.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_3eba2b34a9f31f8a734a",
+        "rec_c3d8e87fe0d467d9da26"
+      ],
+      "source": "docs/docs/tutorials/yahoo_finance_react/index.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_381fef3c7ce32f651148",
+        "rec_25cfbde3029729873547"
+      ],
+      "source": "dspy/adapters/json_adapter.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c20de19bbabf16dd340c",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "dspy/adapters/json_adapter.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_4f1c77f67f3176b136f2",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_339f0a35b42740b84486",
+        "rec_5fddc576a8e13dfa15ba"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_69569219c941d9bc1558",
+        "rec_2a94cd86cb771d6fa0ea"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 2
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_cf7f491719449a9c9ee9",
+        "rec_2a94cd86cb771d6fa0ea"
+      ],
+      "source": "dspy/evaluate/evaluate.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5d920272caec59e138a8",
+        "rec_c21651437cd0087ba3ec"
+      ],
+      "source": "dspy/evaluate/evaluate.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_772503b9044d4a947cbd",
+        "rec_c21651437cd0087ba3ec"
+      ],
+      "source": "dspy/predict/aggregation.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_b5192db4a54a391cd8fe",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "dspy/predict/aggregation.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_239994ec8f1eb2b14052",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "dspy/primitives/example.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_71bd0e5f62fed837e48c",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "dspy/primitives/module.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d924001a833b216aacad",
+        "rec_3eba2b34a9f31f8a734a"
+      ],
+      "source": "dspy/primitives/module.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_8ef8214158df288d85a9",
+        "rec_e8de64cbf35a0fee881e"
+      ],
+      "source": "dspy/propose/utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5568453ac71919993373",
+        "rec_381fef3c7ce32f651148"
+      ],
+      "source": "dspy/propose/utils.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_dfd0433f31a941cb53c0",
+        "rec_c20de19bbabf16dd340c"
+      ],
+      "source": "dspy/teleprompt/gepa/gepa_utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_35c5227ba10289b154c4",
+        "rec_381fef3c7ce32f651148"
+      ],
+      "source": "dspy/utils/dummies.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_12825a48341570daffe0",
+        "rec_69569219c941d9bc1558"
+      ],
+      "source": "dspy/utils/dummies.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_cb2e3ab7354c1cd2a394",
+        "rec_339f0a35b42740b84486"
+      ],
+      "source": "tests/adapters/test_chat_adapter.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_63ae5d0bca3cc08e91e5",
+        "rec_5d920272caec59e138a8"
+      ],
+      "source": "tests/adapters/test_chat_adapter.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_a3e62bfe21a5da4c9266",
+        "rec_cf7f491719449a9c9ee9"
+      ],
+      "source": "tests/adapters/test_tool.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_9ca91d10ca113b131640",
+        "rec_772503b9044d4a947cbd"
+      ],
+      "source": "tests/adapters/test_tool.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d7258b73498e564cca84",
+        "rec_b5192db4a54a391cd8fe"
+      ],
+      "source": "tests/clients/test_cache.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_dae9faf407100e76ef02",
+        "rec_239994ec8f1eb2b14052"
+      ],
+      "source": "tests/clients/test_cache.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d9f1877e489fe0d46332",
+        "rec_239994ec8f1eb2b14052"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_82cbe3c989ab686c8a72",
+        "rec_d924001a833b216aacad"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_8fb5090397fe4e4ec211",
+        "rec_8ef8214158df288d85a9"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 2
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_9650f619008b7268e43a",
+        "rec_dfd0433f31a941cb53c0"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 3
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d59193f399c87fc1dae1",
+        "rec_dfd0433f31a941cb53c0"
+      ],
+      "source": "tests/predict/test_predict.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_03ba5ca2fbda9ef94fc5",
+        "rec_12825a48341570daffe0"
+      ],
+      "source": "tests/predict/test_predict.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c957d8b8df23a1380c56",
+        "rec_35c5227ba10289b154c4"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_01338160f7532c3b9b6e",
+        "rec_cb2e3ab7354c1cd2a394"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_aeb6daf2ff736758ac80",
+        "rec_a3e62bfe21a5da4c9266"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 2
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_afadfa96d343617b9084",
+        "rec_d7258b73498e564cca84"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 3
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_56dd7e71d289bc118729",
+        "rec_dae9faf407100e76ef02"
+      ],
+      "source": "tests/reliability/complex_types/generated/test_many_types_1/program.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5e0bd964347b8e2229c4",
+        "rec_d7258b73498e564cca84"
+      ],
+      "source": "tests/reliability/generate/utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_80c34fdaaa0e8cb71722",
+        "rec_dae9faf407100e76ef02"
+      ],
+      "source": "tests/teleprompt/test_ensemble.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_bd2b9a1f3e3178e90d43",
+        "rec_d9f1877e489fe0d46332"
+      ],
+      "source": "tests/teleprompt/test_ensemble.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_06f680757007ee461189",
+        "rec_9650f619008b7268e43a"
+      ],
+      "source": "tests/teleprompt/test_knn_fewshot.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_874c2d29eec75fbdbc5a",
+        "rec_03ba5ca2fbda9ef94fc5"
+      ],
+      "source": "tests/teleprompt/test_knn_fewshot.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_f3e137e84bace6db3b90",
+        "rec_d59193f399c87fc1dae1"
+      ],
+      "source": "tests/utils/test_parallelizer.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_bee688cbe33b6d630b97",
+        "rec_c957d8b8df23a1380c56"
+      ],
+      "source": "tests/utils/test_parallelizer.py",
+      "step": 1
+    }
+  ],
+  "compute_matched_updates": 98,
+  "control_note": "replay=0 fills all matched slots from the current source",
+  "exposure_by_record": {
+    "rec_01338160f7532c3b9b6e": 1,
+    "rec_03ba5ca2fbda9ef94fc5": 2,
+    "rec_06f680757007ee461189": 1,
+    "rec_12825a48341570daffe0": 2,
+    "rec_239994ec8f1eb2b14052": 3,
+    "rec_25cfbde3029729873547": 3,
+    "rec_2a94cd86cb771d6fa0ea": 4,
+    "rec_339f0a35b42740b84486": 2,
+    "rec_35c5227ba10289b154c4": 2,
+    "rec_381fef3c7ce32f651148": 3,
+    "rec_38d8ae2ce18d3fad6483": 4,
+    "rec_3eba2b34a9f31f8a734a": 2,
+    "rec_4f1c77f67f3176b136f2": 1,
+    "rec_5568453ac71919993373": 1,
+    "rec_56dd7e71d289bc118729": 1,
+    "rec_5d920272caec59e138a8": 2,
+    "rec_5e0bd964347b8e2229c4": 1,
+    "rec_5fddc576a8e13dfa15ba": 3,
+    "rec_63ae5d0bca3cc08e91e5": 1,
+    "rec_69569219c941d9bc1558": 2,
+    "rec_71bd0e5f62fed837e48c": 1,
+    "rec_772503b9044d4a947cbd": 2,
+    "rec_80c34fdaaa0e8cb71722": 1,
+    "rec_82cbe3c989ab686c8a72": 1,
+    "rec_874c2d29eec75fbdbc5a": 1,
+    "rec_8ef8214158df288d85a9": 2,
+    "rec_8fb5090397fe4e4ec211": 1,
+    "rec_9650f619008b7268e43a": 2,
+    "rec_9ca91d10ca113b131640": 1,
+    "rec_a3e62bfe21a5da4c9266": 2,
+    "rec_aeb6daf2ff736758ac80": 1,
+    "rec_afadfa96d343617b9084": 1,
+    "rec_b5192db4a54a391cd8fe": 2,
+    "rec_bd2b9a1f3e3178e90d43": 1,
+    "rec_bee688cbe33b6d630b97": 1,
+    "rec_c20de19bbabf16dd340c": 2,
+    "rec_c21651437cd0087ba3ec": 4,
+    "rec_c3d8e87fe0d467d9da26": 2,
+    "rec_c957d8b8df23a1380c56": 2,
+    "rec_cb2e3ab7354c1cd2a394": 2,
+    "rec_cf7f491719449a9c9ee9": 2,
+    "rec_d59193f399c87fc1dae1": 2,
+    "rec_d7258b73498e564cca84": 3,
+    "rec_d88986ce897debe7dbb0": 5,
+    "rec_d924001a833b216aacad": 2,
+    "rec_d9f1877e489fe0d46332": 2,
+    "rec_dae9faf407100e76ef02": 3,
+    "rec_dfd0433f31a941cb53c0": 3,
+    "rec_e8de64cbf35a0fee881e": 2,
+    "rec_f3e137e84bace6db3b90": 1
+  },
+  "exposure_by_source": {
+    ".github/.internal_dspyai/internals/release-checklist.md": 5,
+    "docs/docs/api/optimizers/MIPROv2.md": 4,
+    "docs/docs/learn/programming/mcp.md": 3,
+    "docs/docs/learn/programming/signatures.md": 4,
+    "docs/docs/tutorials/llms_txt_generation/index.md": 4,
+    "docs/docs/tutorials/streaming/index.md": 5,
+    "docs/docs/tutorials/yahoo_finance_react/index.md": 4,
+    "dspy/adapters/json_adapter.py": 5,
+    "dspy/dsp/utils/utils.py": 5,
+    "dspy/evaluate/evaluate.py": 4,
+    "dspy/predict/aggregation.py": 4,
+    "dspy/primitives/example.py": 3,
+    "dspy/primitives/module.py": 3,
+    "dspy/propose/utils.py": 3,
+    "dspy/teleprompt/gepa/gepa_utils.py": 3,
+    "dspy/utils/dummies.py": 4,
+    "tests/adapters/test_chat_adapter.py": 3,
+    "tests/adapters/test_tool.py": 3,
+    "tests/clients/test_cache.py": 6,
+    "tests/clients/test_lm.py": 6,
+    "tests/predict/test_predict.py": 4,
+    "tests/primitives/test_python_interpreter.py": 5,
+    "tests/reliability/complex_types/generated/test_many_types_1/program.py": 1,
+    "tests/reliability/generate/utils.py": 1,
+    "tests/teleprompt/test_ensemble.py": 2,
+    "tests/teleprompt/test_knn_fewshot.py": 2,
+    "tests/utils/test_parallelizer.py": 2
+  },
+  "replay_fraction": 0.5,
+  "source_exposure_imbalance": {
+    "max": 6,
+    "max_to_min_ratio": 6.0,
+    "mean": 3.6296296296296298,
+    "min": 1,
+    "population_stdev": 1.3094570021973102,
+    "range": 5,
+    "sources": 27
+  }
+}

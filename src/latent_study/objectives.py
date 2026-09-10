@@ -12,7 +12,8 @@ def query_pairwise_loss(pos_mean_logp, neg_mean_logp, reward_gap: float, *, beta
 
 
 def select_preference(outcomes, delta: float):
-    ordered = sorted(outcomes, key=lambda o: (o.reward, o.action.query))
+    import json
+    ordered = sorted(outcomes, key=lambda o: (o.reward, json.dumps(o.action.to_payload(), sort_keys=True)))
     if len(ordered) < 2 or ordered[-1].reward - ordered[0].reward < delta:
         return None
     return ordered[-1], ordered[0]
@@ -40,4 +41,3 @@ def ranking_loss(groups, *, margin: float = 1.0, aggregation: str = "max"):
     if not losses:
         raise ValueError("ranking record has no required evidence groups")
     return torch.stack(losses).mean()
-

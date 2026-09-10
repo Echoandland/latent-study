@@ -1,0 +1,62 @@
+{
+  "atomic_evidence_exposeability": {
+    "exposeable": 50,
+    "fraction": 1.0,
+    "records": 50
+  },
+  "document_file_coverage": {
+    "covered": 29,
+    "eligible": 366,
+    "fraction": 0.07923497267759563
+  },
+  "eligible_token_evidence_coverage": {
+    "covered": 13685,
+    "eligible": 513596,
+    "fraction": 0.02664545674031729
+  },
+  "excluded_reasons": {
+    "not_selected_or_no_strong_structural_label": 2540
+  },
+  "excluded_units": 2540,
+  "relation_audit": {
+    "ambiguous": 10,
+    "excluded": 12301,
+    "excluded_by_reason": {
+      "ambiguous_or_missing_class_method": 136,
+      "ambiguous_or_missing_from_import_target": 1649,
+      "ambiguous_or_missing_module_attribute": 2268,
+      "call_outside_semantic_definition": 161,
+      "caller_not_indexed": 98,
+      "dynamic_or_nested_callable": 1505,
+      "unresolved_name_call": 3717,
+      "unresolved_receiver_call": 2777
+    },
+    "syntactic": 14048,
+    "uniquely_verified": 1737
+  },
+  "semantic_unit_coverage": {
+    "covered": 31,
+    "eligible": 2571,
+    "fraction": 0.012057565149747181
+  },
+  "symbol_coverage": {
+    "covered": 113,
+    "eligible": 2882,
+    "fraction": 0.0392088827203331
+  },
+  "task_family_counts": {
+    "comprehension": 25,
+    "evidence_interpretation": 2,
+    "misconception_correction": 13,
+    "navigation": 5,
+    "relation_induction": 5
+  },
+  "units_seen_only_as_negatives": 0,
+  "units_supervised_as_positive_evidence": 31,
+  "verified_relation_coverage": {
+    "covered": 5,
+    "eligible": 1737,
+    "fraction": 0.0028785261945883708
+  },
+  "warning": "Appearance is not evidence of learning; these are exposure/coverage measurements only."
+}

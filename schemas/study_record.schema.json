@@ -4,13 +4,19 @@
   "type": "object",
   "required": ["record_id", "family", "source_id", "prompt", "observation", "evidence_groups",
                "positive_chunk_ids", "verified_negative_chunk_ids", "candidate_actions", "outcomes",
-               "validation", "corpus_hash", "source_hash", "template_id", "random_seed", "weak_label"],
+               "validation", "corpus_hash", "source_hash", "template_id", "random_seed", "weak_label",
+               "observation_action"],
   "properties": {
     "record_id": {"type": "string"},
     "family": {"enum": ["comprehension", "relation_induction", "navigation", "evidence_interpretation", "misconception_correction"]},
-    "evidence_groups": {"type": "array", "minItems": 1},
-    "candidate_actions": {"type": "array", "minItems": 1},
+    "evidence_groups": {"type": "array", "minItems": 1,
+      "items": {"type": "object", "required": ["group_id", "alternatives"],
+        "properties": {"alternatives": {"type": "array", "minItems": 1,
+          "items": {"type": "object", "required": ["chunk_id", "source_path", "start_line", "end_line", "text", "text_hash"]}}}},
+    "candidate_actions": {"type": "array", "minItems": 1,
+      "items": {"type": "object", "properties": {"tool": {"enum": ["grep", "glob", "read_file"]}}}},
     "outcomes": {"type": "array", "minItems": 1},
+    "observation_action": {"type": ["object", "null"]},
     "weak_label": {"type": "boolean"}
   }
 }

@@ -1,0 +1,65 @@
+{
+  "client_statistics": {
+    "failed_outputs": 0,
+    "failure_rate_per_update": 0.0,
+    "input_tokens": 6160,
+    "latency_seconds": 37.092525362968445,
+    "malformed_examples": [],
+    "malformed_output_rate": 0.0,
+    "malformed_outputs": 0,
+    "model_calls": 2,
+    "output_tokens": 745,
+    "retry_calls": 0,
+    "retry_rate": 0.0
+  },
+  "complete_artifact_bytes": 2061,
+  "evaluation_inputs_seen": false,
+  "evolve_steps": null,
+  "exposure_by_record": {
+    "rec_339f0a35b42740b84486": 2
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 2
+  },
+  "map_text": "## CONTEXT ROADMAP\n[cr-00001] Core utility classes (e.g., `dotdict`, `dotdict_lax`) are defined in `dspy/dsp/utils/utils.py`. The project root contains `dspy/`, `docs/`, and `.github/` directories.\n\n## PARSING SCHEMA\n[ps-00002] Class definitions follow `class ClassName(BaseClass):` pattern. Utility classes often inherit from standard types (e.g., `dict`) and override methods like `__getattr__`. Comments like `# noqa` are common.\n",
+  "map_text_bytes": 433,
+  "map_text_tokens": 125,
+  "model": {
+    "dtype": "bfloat16",
+    "frozen": true,
+    "id": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+  },
+  "phase": "frozen_before_evaluation",
+  "protocol": "offline_peek_map",
+  "replay_exposure_by_source": {},
+  "replay_fraction": 0.5,
+  "replay_source_imbalance": {
+    "max": 0,
+    "max_to_min_ratio": 0.0,
+    "mean": 0.0,
+    "min": 0,
+    "population_stdev": 0.0,
+    "range": 0,
+    "sources": 1
+  },
+  "scores": {},
+  "source_exposure_imbalance": {
+    "max": 2,
+    "max_to_min_ratio": 1.0,
+    "mean": 2.0,
+    "min": 2,
+    "population_stdev": 0.0,
+    "range": 0,
+    "sources": 1
+  },
+  "steps": 1,
+  "study_elapsed_seconds": 37.1547460462898,
+  "study_input_tokens": 6160,
+  "study_output_tokens": 745,
+  "token_budget": 1024,
+  "token_counter": "Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "update_count": 1,
+  "upstream_policy": true,
+  "upstream_revision": "8b109771b51126284ea337f23827facde1db05ed"
+}

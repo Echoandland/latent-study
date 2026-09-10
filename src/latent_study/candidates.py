@@ -1,32 +1,38 @@
 from __future__ import annotations
 
-import json
-
-from .agent import parse_tool_actions
+import time
+from .agent import parse_tool_actions, serialize_chat_ids, study_state_messages
 from .rewards import score_action
 from .schema import StudyRecord, ToolAction
 
 
-def sample_base_actions(model, tokenizer, prompt: str, *, n: int, seed: int) -> tuple[ToolAction, ...]:
+def sample_base_actions(model, tokenizer, record: StudyRecord, *, n: int, seed: int,
+                        max_new_tokens: int = 96) -> tuple[ToolAction, ...]:
     """Sample actions from the frozen base LM, explicitly without any learned latent."""
     import torch
-    messages = [{"role": "system", "content": (
-        "Return one search action as JSON only: "
-        '{"tool":"search","query":"specific query","max_results":5}.')},
-        {"role": "user", "content": prompt}]
-    ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True,
-                                        return_tensors="pt").to(model.device)
+    messages = study_state_messages(record)
+    messages.append({"role": "user", "content": "Return one legal coding-tool action as JSON only."})
+    ids = serialize_chat_ids(tokenizer, messages, add_generation_prompt=True).to(model.device)
     actions = []
+    torch.manual_seed(seed)
+    if str(model.device).startswith("cuda"): torch.cuda.manual_seed_all(seed)
+    batch_ids = ids.repeat(n, 1)
+    started = time.perf_counter()
+    with torch.no_grad():
+        output = model.generate(batch_ids, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.8,
+                                top_p=0.95,
+                                pad_token_id=tokenizer.eos_token_id)
+    elapsed = time.perf_counter() - started
+    stats = getattr(model, "_latent_study_candidate_stats", {"model_calls": 0, "input_tokens": 0,
+                                                             "output_tokens": 0, "latency_seconds": 0.0})
+    stats["model_calls"] += 1; stats["input_tokens"] += int(batch_ids.numel())
+    stats["output_tokens"] += int(output[:, ids.shape[1]:].numel()); stats["latency_seconds"] += elapsed
+    model._latent_study_candidate_stats = stats
     for index in range(n):
-        generator = torch.Generator(device=model.device).manual_seed(seed + index)
-        with torch.no_grad():
-            output = model.generate(ids, max_new_tokens=80, do_sample=True, temperature=0.8,
-                                    top_p=0.95, generator=generator,
-                                    pad_token_id=tokenizer.eos_token_id)
-        text = tokenizer.decode(output[0, ids.shape[1]:], skip_special_tokens=True)
+        text = tokenizer.decode(output[index, ids.shape[1]:], skip_special_tokens=True)
         parsed = parse_tool_actions(text)
         # Preserve invalid generations for scoring/logging with an invalid empty action.
-        actions.append(parsed[0] if parsed else ToolAction("", 5))
+        actions.append(parsed[0] if parsed else ToolAction(query="", tool="grep", max_results=5))
     return tuple(actions)
 
 

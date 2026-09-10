@@ -1,0 +1,75 @@
+{
+  "client_statistics": {
+    "failed_outputs": 6,
+    "input_tokens": 61108,
+    "latency_seconds": 207.23077088408172,
+    "malformed_outputs": 12,
+    "model_calls": 18,
+    "output_tokens": 4009,
+    "retry_calls": 6
+  },
+  "complete_artifact_bytes": 2024,
+  "evaluation_inputs_seen": false,
+  "evolve_steps": null,
+  "exposure_by_record": {
+    "rec_01338160f7532c3b9b6e": 1,
+    "rec_339f0a35b42740b84486": 4,
+    "rec_8ef8214158df288d85a9": 2,
+    "rec_a3e62bfe21a5da4c9266": 2,
+    "rec_afadfa96d343617b9084": 1,
+    "rec_dae9faf407100e76ef02": 2
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 4,
+    "dspy/propose/utils.py": 2,
+    "tests/adapters/test_tool.py": 2,
+    "tests/clients/test_cache.py": 2,
+    "tests/primitives/test_python_interpreter.py": 2
+  },
+  "map_text": "## CONTEXT ROADMAP\n",
+  "map_text_bytes": 19,
+  "map_text_tokens": 5,
+  "model": {
+    "dtype": "bfloat16",
+    "frozen": true,
+    "id": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+  },
+  "phase": "frozen_before_evaluation",
+  "protocol": "offline_peek_map",
+  "replay_exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 2,
+    "dspy/propose/utils.py": 1,
+    "tests/adapters/test_tool.py": 1,
+    "tests/clients/test_cache.py": 1
+  },
+  "replay_fraction": 0.5,
+  "replay_source_imbalance": {
+    "max": 2,
+    "max_to_min_ratio": Infinity,
+    "mean": 1.0,
+    "min": 0,
+    "population_stdev": 0.6324555320336759,
+    "range": 2,
+    "sources": 5
+  },
+  "scores": {},
+  "source_exposure_imbalance": {
+    "max": 4,
+    "max_to_min_ratio": 2.0,
+    "mean": 2.4,
+    "min": 2,
+    "population_stdev": 0.8,
+    "range": 2,
+    "sources": 5
+  },
+  "steps": 6,
+  "study_elapsed_seconds": 207.50712843239307,
+  "study_input_tokens": 36594,
+  "study_output_tokens": 2473,
+  "token_budget": 64,
+  "token_counter": "Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "update_count": 6,
+  "upstream_policy": true,
+  "upstream_revision": "8b109771b51126284ea337f23827facde1db05ed"
+}

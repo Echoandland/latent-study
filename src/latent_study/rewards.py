@@ -24,21 +24,27 @@ def visible_groups(hits: tuple[ToolHit, ...], groups: tuple[EvidenceGroup, ...])
         for alternative in group.alternatives:
             for hit in hits:
                 # Evidence must survive truncation, not merely share a chunk ID.
-                if hit.chunk_id == alternative.chunk_id and alternative.text_hash in _visible_span_hashes(hit):
+                if _span_visible(hit, alternative):
                     matched = True
         if matched:
             visible.append(group.group_id)
     return tuple(visible)
 
 
-def _visible_span_hashes(hit: ToolHit) -> set[str]:
+def _span_visible(hit: ToolHit, span) -> bool:
+    """An evidence hit counts only if its exact path/range/text survived rendering."""
     from .io import sha256_text
+    if span.source_path and hit.source_path != span.source_path:
+        return False
+    if hit.start_line > span.start_line or hit.end_line < span.end_line:
+        return False
     lines = hit.text.splitlines()
-    hashes = {sha256_text(hit.text)}
-    for start in range(len(lines)):
-        for end in range(start + 1, len(lines) + 1):
-            hashes.add(sha256_text("\n".join(lines[start:end])))
-    return hashes
+    relative_start = span.start_line - hit.start_line
+    relative_end = span.end_line - hit.start_line + 1
+    if relative_start < 0 or relative_end > len(lines):
+        return False
+    visible_text = "\n".join(lines[relative_start:relative_end])
+    return sha256_text(visible_text) == span.text_hash
 
 
 def score_action(action: ToolAction, valid: bool, hits: tuple[ToolHit, ...], observation: str,
@@ -52,7 +58,7 @@ def score_action(action: ToolAction, valid: bool, hits: tuple[ToolHit, ...], obs
     for group in groups:
         for alternative in group.alternatives:
             for hit in hits:
-                if hit.chunk_id == alternative.chunk_id and alternative.text_hash in _visible_span_hashes(hit):
+                if _span_visible(hit, alternative):
                     visible_chunk_ids.add(hit.chunk_id)
     required = len(groups)
     coverage = len(group_ids) / required if required else 0.0

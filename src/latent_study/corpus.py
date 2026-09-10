@@ -131,6 +131,172 @@ def _prose_units(relative: str, text: str, document_id: str, source_hash: str) -
     return out
 
 
+def _module_name(relative: str) -> str:
+    value = relative[:-3] if relative.endswith(".py") else relative
+    if value.endswith("/__init__"):
+        value = value[:-9]
+    return value.replace("/", ".").strip(".")
+
+
+def _node_line_span(node: ast.AST, lines: list[str]) -> dict:
+    start = int(getattr(node, "lineno", 1))
+    end = int(getattr(node, "end_lineno", start))
+    text = "\n".join(lines[start - 1:end])
+    return {"start_line": start, "end_line": end, "text": text,
+            "text_hash": sha256_text(text)}
+
+
+def _declaration_line_span(node: ast.AST, lines: list[str]) -> dict:
+    start = int(getattr(node, "lineno", 1))
+    decorators = getattr(node, "decorator_list", ())
+    if decorators:
+        start = min(start, *(int(getattr(item, "lineno", start)) for item in decorators))
+    body = getattr(node, "body", ())
+    end = max(start, int(getattr(body[0], "lineno", start + 1)) - 1) if body else start
+    if (body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)):
+        end = min(int(getattr(body[0], "end_lineno", end)), start + 12)
+    text = "\n".join(lines[start - 1:end])
+    return {"start_line": start, "end_line": end, "text": text, "text_hash": sha256_text(text)}
+
+
+def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list[dict], dict]:
+    """Resolve only call edges justified by explicit lexical/import bindings."""
+    python_units = [u for u in units if u.source_path.endswith(".py")]
+    units_by_path: dict[str, list[CorpusUnit]] = {}
+    for unit in python_units:
+        units_by_path.setdefault(unit.source_path, []).append(unit)
+    parsed: dict[str, tuple[ast.Module, list[str]]] = {}
+    definitions: dict[tuple[str, str], list[tuple[ast.AST, CorpusUnit]]] = {}
+    module_paths: dict[str, list[str]] = {}
+    for path, file_units in units_by_path.items():
+        text = (root / path).read_text(encoding="utf-8")
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue
+        lines = text.splitlines()
+        parsed[path] = (tree, lines)
+        module_paths.setdefault(_module_name(path), []).append(path)
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                container = next((u for u in file_units if u.start_line == node.lineno), None)
+                if container is None:
+                    continue
+                definitions.setdefault((path, node.name), []).append((node, container))
+                if isinstance(node, ast.ClassDef):
+                    for child in node.body:
+                        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            definitions.setdefault((path, f"{node.name}.{child.name}"), []).append((child, container))
+
+    accepted: list[dict] = []
+    counts = {"syntactic": 0, "uniquely_verified": 0, "ambiguous": 0, "excluded": 0}
+    excluded_by_reason: dict[str, int] = {}
+
+    def exclude(reason: str, ambiguous: bool = False) -> None:
+        counts["ambiguous" if ambiguous else "excluded"] += 1
+        excluded_by_reason[reason] = excluded_by_reason.get(reason, 0) + 1
+
+    for path, (tree, lines) in parsed.items():
+        import_symbols: dict[str, tuple[str, str]] = {}
+        import_modules: dict[str, str] = {}
+        for node in tree.body:
+            if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                for alias in node.names:
+                    if alias.name != "*":
+                        import_symbols[alias.asname or alias.name] = (node.module, alias.name)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    import_modules[alias.asname or alias.name.split(".")[0]] = alias.name
+
+        parents: dict[ast.AST, ast.AST] = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parents[child] = node
+        for call in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
+            counts["syntactic"] += 1
+            owner = call
+            while owner in parents and not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                owner = parents[owner]
+            if not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                exclude("call_outside_semantic_definition")
+                continue
+            outer = owner
+            while isinstance(parents.get(outer), (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                outer = parents[outer]
+            caller = next((u for u in units_by_path[path] if u.start_line == outer.lineno), None)
+            if caller is None:
+                exclude("caller_not_indexed")
+                continue
+            target: tuple[ast.AST, CorpusUnit] | None = None
+            rule = ""
+            binding: dict = {}
+            func = call.func
+            if isinstance(func, ast.Name):
+                local = definitions.get((path, func.id), [])
+                if len(local) == 1:
+                    target, rule = local[0], "direct_local_function"
+                elif func.id in import_symbols:
+                    module, symbol = import_symbols[func.id]
+                    paths = module_paths.get(module, [])
+                    candidates = [item for p in paths for item in definitions.get((p, symbol), [])]
+                    if len(candidates) == 1:
+                        target, rule = candidates[0], "from_import_symbol"
+                        binding = {"local_name": func.id, "module": module, "symbol": symbol}
+                    else:
+                        exclude("ambiguous_or_missing_from_import_target", ambiguous=len(candidates) > 1)
+                        continue
+                else:
+                    exclude("unresolved_name_call")
+                    continue
+            elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                base = func.value.id
+                if base in {"self", "cls"}:
+                    cls = owner
+                    while cls in parents and not isinstance(cls, ast.ClassDef):
+                        cls = parents[cls]
+                    candidates = definitions.get((path, f"{cls.name}.{func.attr}"), []) if isinstance(cls, ast.ClassDef) else []
+                    if len(candidates) == 1:
+                        target, rule = candidates[0], "class_local_method"
+                    else:
+                        exclude("ambiguous_or_missing_class_method", ambiguous=len(candidates) > 1)
+                        continue
+                elif base in import_modules:
+                    module = import_modules[base]
+                    paths = module_paths.get(module, [])
+                    candidates = [item for p in paths for item in definitions.get((p, func.attr), [])]
+                    if len(candidates) == 1:
+                        target, rule = candidates[0], "import_alias_attribute"
+                        binding = {"alias": base, "module": module, "symbol": func.attr}
+                    else:
+                        exclude("ambiguous_or_missing_module_attribute", ambiguous=len(candidates) > 1)
+                        continue
+                else:
+                    exclude("unresolved_receiver_call")
+                    continue
+            else:
+                exclude("dynamic_or_nested_callable")
+                continue
+            assert target is not None
+            target_node, target_unit = target
+            relation = {
+                "relation_id": f"rel_{sha256_text(f'{path}:{call.lineno}:{rule}:{target_unit.unit_id}:{target_node.lineno}')[:20]}",
+                "relation": "calls", "resolution_rule": rule,
+                "caller_unit_id": caller.unit_id, "callee_unit_id": target_unit.unit_id,
+                "caller_symbol": caller.name,
+                "callee_symbol": getattr(target_node, "name", ""),
+                "caller_path": path, "callee_path": target_unit.source_path,
+                "call_span": _node_line_span(call, lines),
+                "callee_declaration": _declaration_line_span(
+                    target_node, (root / target_unit.source_path).read_text(encoding="utf-8").splitlines()),
+                "binding": binding,
+            }
+            accepted.append(relation)
+            counts["uniquely_verified"] += 1
+    counts["excluded_by_reason"] = excluded_by_reason
+    return sorted(accepted, key=lambda x: x["relation_id"]), counts
+
+
 def build_manifest(root: str | Path) -> dict:
     root = Path(root).resolve()
     documents, units, excluded = [], [], []
@@ -164,10 +330,13 @@ def build_manifest(root: str | Path) -> dict:
         documents.append({"document_id": document_id, "path": relative, "content_hash": digest,
                           "eligible_tokens": sum(u.eligible_tokens for u in file_units), "unit_count": len(file_units)})
         units.extend(file_units)
+    verified_relations, relation_audit = _resolve_python_relations(root, units)
     corpus_hash = canonical_hash([{"path": d["path"], "content_hash": d["content_hash"]} for d in documents])
-    return {"schema_version": 1, "root": str(root), "corpus_hash": corpus_hash,
+    return {"schema_version": 2, "root": str(root), "corpus_hash": corpus_hash,
             "documents": documents, "units": units, "excluded": excluded,
+            "verified_relations": verified_relations, "relation_audit": relation_audit,
             "counts": {"documents": len(documents), "units": len(units),
                        "eligible_tokens": sum(u.eligible_tokens for u in units),
                        "symbols": sum(len(u.symbols) for u in units),
-                       "verified_relations": sum(len(u.relations) for u in units)}}
+                       "syntactic_relations": relation_audit["syntactic"],
+                       "verified_relations": relation_audit["uniquely_verified"]}}

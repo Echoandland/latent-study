@@ -10,6 +10,8 @@ class EvidenceSpan:
     start_line: int
     end_line: int
     text_hash: str
+    source_path: str = ""
+    text: str = ""
 
 
 @dataclass(frozen=True)
@@ -39,8 +41,25 @@ class CorpusUnit:
 
 @dataclass(frozen=True)
 class ToolAction:
-    query: str
+    query: str = ""
     max_results: int = 5
+    tool: Literal["grep", "glob", "read_file"] = "grep"
+    path: str = ""
+    pattern: str = ""
+    start_line: int | None = None
+    end_line: int | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"tool": self.tool}
+        if self.tool == "grep":
+            payload.update({"query": self.query, "path": self.path or ".",
+                            "max_results": self.max_results})
+        elif self.tool == "glob":
+            payload.update({"pattern": self.pattern, "max_results": self.max_results})
+        else:
+            payload.update({"path": self.path, "start_line": self.start_line,
+                            "end_line": self.end_line})
+        return payload
 
 
 @dataclass(frozen=True)
@@ -52,6 +71,7 @@ class ToolHit:
     text: str
     rank: int
     returned_bytes: int
+    tool: str = "grep"
 
 
 @dataclass(frozen=True)
@@ -87,6 +107,7 @@ class StudyRecord:
     template_id: str
     random_seed: int
     weak_label: bool = False
+    observation_action: ToolAction | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

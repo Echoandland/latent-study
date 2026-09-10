@@ -35,7 +35,8 @@ def assert_frozen_artifact(path: str | Path) -> dict:
 
 
 def validate_study_bank(records, corpus_hash: str) -> None:
-    allowed = {"python_ast_definition", "python_ast_call_edge"}
+    allowed = {"atomic_structural_definition", "uniquely_resolved_ast_call",
+               "ast_assignment_or_import", "single_verified_name_substitution"}
     for record in records:
         if record.corpus_hash != corpus_hash:
             raise IsolationError(f"record {record.record_id} has a foreign corpus hash")

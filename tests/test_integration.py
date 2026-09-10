@@ -26,3 +26,25 @@ def test_small_coverage_replay_integration(tmp_path):
     matched = no_replay.batch(sorted(by_source)[-1], 4, 0)
     assert len(matched.records) == 4 and matched.current_count == 4
 
+
+def test_batch_two_replay_round_robins_over_every_previous_source(tmp_path):
+    corpus = tmp_path / "many"; corpus.mkdir()
+    for index in range(7):
+        (corpus / f"s{index}.py").write_text(f"def unique_{index}():\n    return {index}\n")
+    manifest = build_manifest(corpus)
+    records = generate_coverage_records(manifest["units"], manifest["corpus_hash"])
+    grouped = {}
+    for record in records:
+        grouped.setdefault(record.source_id, []).append(record)
+    replay = SourceReplay(seed=19, replay_fraction=.5)
+    sources = sorted(grouped)
+    for source in sources:
+        replay.add_source(source, grouped[source])
+    current, previous = sources[-1], sources[:-1]
+    for step in range(len(previous) * 2):
+        batch = replay.batch(current, batch_size=2, step=step)
+        assert (batch.current_count, batch.previous_count) == (1, 1)
+    counts = {source: replay.previous_ledger.by_source.get(source, 0) for source in previous}
+    assert set(counts.values()) == {2}
+    assert replay.source_imbalance(previous, kind="previous")["range"] == 0
+    assert counts[previous[0]] < sum(counts.values())

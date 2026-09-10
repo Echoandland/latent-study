@@ -26,7 +26,7 @@ class ToyTokenizer:
 class ToyLM(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.config = SimpleNamespace(hidden_size=8, model_type="qwen3_5")
+        self.config = SimpleNamespace(hidden_size=8, model_type="toy_causal_lm")
         self.embedding = torch.nn.Embedding(32, 8)
         self.head = torch.nn.Linear(8, 32, bias=False)
         self.calls = []
@@ -73,7 +73,7 @@ def test_labels_prefix_masks_positions_cache_no_duplication_and_save_load(tmp_pa
     assert first["positions"] == [list(range(first["input"]))]
     session.append_tool_turn(torch.tensor([[9, 10]]))
     second = wrapper.model.calls[-1]
-    assert wrapper.model.calls[-2]["input"] == 1 and second["input"] == 1
+    assert second["input"] == 2
     assert second["mask"] == first["input"] + 2
     assert session.state.prefix_insertions == 1
     generated, final_state = wrapper.generate_from_state(session.state, max_new_tokens=2)
@@ -85,3 +85,15 @@ def test_labels_prefix_masks_positions_cache_no_duplication_and_save_load(tmp_pa
     wrapper.load(path, expected_corpus_hash="abc")
     after = wrapper.prefill_ids(ids, use_cache=False).next_logits.detach()
     assert torch.equal(before, after)
+
+
+def test_qwen_hybrid_state_uses_exact_recompute_fallback():
+    lm = ToyLM(); lm.config.model_type = "qwen3_5"
+    wrapper = SoftPrefixLM(lm, ToyTokenizer(), length=2)
+    initial = torch.tensor([[1, 2, 3]])
+    state = wrapper.prefill_ids(initial)
+    state = wrapper.append_ids(state, torch.tensor([[4, 5, 6]]))
+    full = wrapper.prefill_ids(torch.tensor([[1, 2, 3, 4, 5, 6]]), use_cache=False)
+    assert state.cache_mode == "full_recompute"
+    assert torch.equal(state.next_logits, full.next_logits)
+    assert state.prefix_insertions == 1
