@@ -1,0 +1,33 @@
+{
+  "document_file_coverage": {
+    "covered": 6,
+    "eligible": 366,
+    "fraction": 0.01639344262295082
+  },
+  "eligible_token_evidence_coverage": {
+    "covered": 705,
+    "eligible": 513596,
+    "fraction": 0.0013726742420112307
+  },
+  "excluded_reasons": {
+    "not_selected_or_no_strong_structural_label": 2565
+  },
+  "excluded_units": 2565,
+  "semantic_unit_coverage": {
+    "covered": 6,
+    "eligible": 2571,
+    "fraction": 0.002333722287047841
+  },
+  "symbol_coverage": {
+    "covered": 27,
+    "eligible": 2882,
+    "fraction": 0.009368494101318528
+  },
+  "units_seen_only_as_negatives": 0,
+  "units_supervised_as_positive_evidence": 6,
+  "verified_relation_coverage": {
+    "covered_records": 2,
+    "eligible_edges": 10155
+  },
+  "warning": "Appearance is not evidence of learning; these are exposure/coverage measurements only."
+}

@@ -1,0 +1,226 @@
+[
+  {
+    "gold_chunk_id": "unit_001ba3cd1725807042a3",
+    "probe_id": "probe_36d79e542132d8df5a69",
+    "prompt": "Which corpus location establishes the implementation contract for `dotdict`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_002876159f2e49c6a64f",
+    "probe_id": "probe_d9286ae56daeba0e3e32",
+    "prompt": "Which corpus location establishes the implementation contract for `test_extract_parameters_complex_types`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0060686553535a2f5e9d",
+    "probe_id": "probe_081c95098e7d04262d1b",
+    "prompt": "Which corpus location establishes the implementation contract for `test_reset_memory_cache`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_00df70452dc54b8454f1",
+    "probe_id": "probe_94d28bf92feea2862b92",
+    "prompt": "Which corpus location establishes the implementation contract for `parse_list_of_instructions`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_00e888de5dcdcd78e6e1",
+    "probe_id": "probe_077cbab67c7f74d3b4f5",
+    "prompt": "Which corpus location establishes the implementation contract for `dummy_function`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_00ebc8aeb211f1a7ba38",
+    "probe_id": "probe_17ec0c037bbaa26a7f34",
+    "prompt": "Which corpus location establishes the implementation contract for `test_serialize_tuple`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_00ecaf69be339d134a37",
+    "probe_id": "probe_58ee6c4ee1c0a63244c3",
+    "prompt": "Which corpus location establishes the implementation contract for `test_rollout_id_bypasses_cache`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_010edfb23f3d2df95baf",
+    "probe_id": "probe_3146964db3c62a33c729",
+    "prompt": "Which corpus location establishes the implementation contract for `test_code_output_field_omits_json_schema_in_prompt`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_01126c7748457c96d17d",
+    "probe_id": "probe_d6afaa0c7eff73e23ecf",
+    "prompt": "Which corpus location establishes the implementation contract for `module@1`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0115a94dfe2d71097651",
+    "probe_id": "probe_0c7ee7d66fbaa6f98925",
+    "prompt": "Which corpus location establishes the implementation contract for `Step 3: Build the Financial ReAct Agent`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_011cc9f135bac7717728",
+    "probe_id": "probe_84af9629a9489e4bb2d8",
+    "prompt": "Which corpus location establishes the implementation contract for `_test_knn_few_shot_compile`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_016066498053ae9907df",
+    "probe_id": "probe_f714a58d6d2ab596a341",
+    "prompt": "Which corpus location establishes the implementation contract for `test_nested_dict_type_validation`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0163103f557cb947e329",
+    "probe_id": "probe_b167adaed79ebeba0719",
+    "prompt": "Which corpus location establishes the implementation contract for `module@1`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_016889c63e3b6361966b",
+    "probe_id": "probe_b3e751f9bfea4ec1c323",
+    "prompt": "Which corpus location establishes the implementation contract for `test_ensemble_with_size_limitation`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_018d5fdb7f21d00c8b74",
+    "probe_id": "probe_9debe9a28c60f3b3a369",
+    "prompt": "Which corpus location establishes the implementation contract for `Prerequisites`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0199d73ceaa5ca82ed18",
+    "probe_id": "probe_330bb7525e6d757cf45b",
+    "prompt": "Which corpus location establishes the implementation contract for `process_grouped_by_first_item`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_019ae5f4f9e263a6b85c",
+    "probe_id": "probe_5e97fc399e4057b4ee60",
+    "prompt": "Which corpus location establishes the implementation contract for `This will trigger a warning because we're passing a string instead of an int`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_01aa193160d378c537ad",
+    "probe_id": "probe_e1b288dbe85326b3a363",
+    "prompt": "Which corpus location establishes the implementation contract for `Output Token Streaming`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_01b3f309f8c7724f8a94",
+    "probe_id": "probe_183219ed2af50e3ad1b3",
+    "prompt": "Which corpus location establishes the implementation contract for `Example`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_01f0cdc1c6e640230033",
+    "probe_id": "probe_f2319add46ce7dfd15e2",
+    "prompt": "Which corpus location establishes the implementation contract for `LoggerAdapter`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_01fb130c7ff6372032de",
+    "probe_id": "probe_bc7b8afd38a7a1ca8cdf",
+    "prompt": "Which corpus location establishes the implementation contract for `How `MIPROv2` works`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0204d52dc5e2b72ffa73",
+    "probe_id": "probe_57ff08f556d2c0881bdd",
+    "prompt": "Which corpus location establishes the implementation contract for `Key Concepts`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_02359f437eb63d266023",
+    "probe_id": "probe_e9e17ba2af55b3bb9600",
+    "prompt": "Which corpus location establishes the implementation contract for `Installation`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0259e262bbdeabe068f8",
+    "probe_id": "probe_06cd75cea4e1647d66cb",
+    "prompt": "Which corpus location establishes the implementation contract for `LiteralField`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0281680f8bb04f6d0c38",
+    "probe_id": "probe_1fb73b9fe46ef23b79d8",
+    "prompt": "Which corpus location establishes the implementation contract for `_json_input_to_program_input`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_02874cfb42e9ffbf6aa4",
+    "probe_id": "probe_d6050f8384ba38a86801",
+    "prompt": "Which corpus location establishes the implementation contract for `ComplexResponse`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_02aa78ae24066008bd6f",
+    "probe_id": "probe_ad34092da3e3690c6e90",
+    "prompt": "Which corpus location establishes the implementation contract for `test_nested_batch_method`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_02ae2fe5dd98e100285c",
+    "probe_id": "probe_1a72117405914848b6b1",
+    "prompt": "Which corpus location establishes the implementation contract for `test_json_adapter_formats_image_with_few_shot_examples_with_nested_images`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_02c18c2e6e4f940a7a17",
+    "probe_id": "probe_1ed87bc1aae2a6d78c9b",
+    "prompt": "Which corpus location establishes the implementation contract for `get_adapter`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_02f1acf1f9f8b3090a6b",
+    "probe_id": "probe_512c46c02a6b95fa9c27",
+    "prompt": "Which corpus location establishes the implementation contract for `Create a tool from the async function`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_0314f8652e4febed40a9",
+    "probe_id": "probe_5315ecfde846d49907ab",
+    "prompt": "Which corpus location establishes the implementation contract for `test_convert_custom_simple_tool`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  },
+  {
+    "gold_chunk_id": "unit_031a189182b0bb6ed2e7",
+    "probe_id": "probe_dd11fa3276b13bba2a2e",
+    "prompt": "Which corpus location establishes the implementation contract for `test_chat_adapter_signature_information`?",
+    "provenance": "held-out prompt within same corpus",
+    "template_id": "probe-v1"
+  }
+]

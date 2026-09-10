@@ -1,0 +1,71 @@
+{
+  "batches": [
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_de134f0c4686e00329fb",
+        "rec_3544a46c8bd355e9a300"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 0
+    },
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_870d518be901c60d6530",
+        "rec_870d518be901c60d6530"
+      ],
+      "source": "dspy/propose/utils.py",
+      "step": 0
+    },
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_f27e2f206242d10eb0b2",
+        "rec_f27e2f206242d10eb0b2"
+      ],
+      "source": "tests/clients/test_cache.py",
+      "step": 0
+    },
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_227bca6bdfa7117bb524",
+        "rec_1df85156c7ac4836577d"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 0
+    },
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_227bca6bdfa7117bb524",
+        "rec_1df85156c7ac4836577d"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 1
+    }
+  ],
+  "compute_matched_updates": 10,
+  "control_note": "replay=0 fills all matched slots from the current source",
+  "exposure_by_record": {
+    "rec_1df85156c7ac4836577d": 2,
+    "rec_227bca6bdfa7117bb524": 2,
+    "rec_3544a46c8bd355e9a300": 1,
+    "rec_870d518be901c60d6530": 2,
+    "rec_de134f0c4686e00329fb": 1,
+    "rec_f27e2f206242d10eb0b2": 2
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 2,
+    "dspy/propose/utils.py": 2,
+    "tests/clients/test_cache.py": 2,
+    "tests/primitives/test_python_interpreter.py": 4
+  },
+  "replay_fraction": 0.0
+}

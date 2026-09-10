@@ -1,0 +1,30 @@
+{
+  "protocol": "offline_machine_studying",
+  "model": {
+    "id": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "frozen": true,
+    "dtype": "bfloat16"
+  },
+  "corpus": {
+    "repository": "https://github.com/stanfordnlp/dspy.git",
+    "revision": "9cdb0aac28b2a04b064e40697ccd301872cf6a43",
+    "authorized_roots": ["data/corpus/dspy"],
+    "evaluation_roots": ["data/evaluation/studybench"]
+  },
+  "latent": {"length": 64, "init_std": 0.02},
+  "candidate_generation": {"n": 4, "source": "frozen_base_without_latent"},
+  "search": {"max_results": 5, "max_bytes_per_hit": 1600, "max_total_bytes": 6000},
+  "reward": {
+    "semantic_distance_enabled": false,
+    "within_document_positional_distance_enabled": false
+  },
+  "objective": {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0, "lambda_rank": 1.0},
+  "replay": {"fraction": 0.5, "source_stratified": true, "keep_full_bank": true},
+  "evaluation": {
+    "conditions": ["no_study", "random_latent_L64", "trained_latent_L64", "offline_peek_64", "offline_peek_1024"],
+    "memory_frozen": true,
+    "same_tools_and_budgets": true
+  }
+}
+

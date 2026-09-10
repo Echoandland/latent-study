@@ -1,0 +1,19 @@
+{
+  "cold_cache_latency_seconds": 0.10264429450035095,
+  "downstream_accuracy": null,
+  "expertise": null,
+  "invalid_actions": 0,
+  "mean_required_group_coverage": 0.6666666666666666,
+  "model_input_tokens": null,
+  "model_output_tokens": null,
+  "peak_rss_kib": 72500,
+  "reason_unmeasured": "official model checkpoint and judge/harness were not available",
+  "records": 6,
+  "records_with_all_required_groups": 3,
+  "records_with_visible_evidence": 5,
+  "result_count": 30,
+  "returned_observation_bytes": 28693,
+  "scope": "study-record action/tool smoke; not downstream StudyBench evaluation",
+  "tool_calls": 12,
+  "warm_cache_latency_seconds": 0.10179075971245766
+}

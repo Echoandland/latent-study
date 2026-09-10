@@ -1,0 +1,28 @@
+{
+  "all_lm_parameters_frozen": true,
+  "forward_backward_seconds": 2.3701074067503214,
+  "generated_tokens": 2,
+  "gpu_peak_memory_bytes": 19441522176,
+  "hidden_size": 4096,
+  "latent_length": 3,
+  "latent_save_load_logits_exact": true,
+  "latent_serialized_bytes": 50589,
+  "lm_gradient_buffers": 0,
+  "model": "Qwen/Qwen3.5-9B",
+  "model_load_seconds": 7.151969296857715,
+  "model_path": "/nas03/yucheng/latent-study/data/models/Qwen3.5-9B",
+  "model_type": "qwen3_5_text",
+  "prefix_gradient_nonzero": true,
+  "prefix_insertions_after_tool_and_generation": 1,
+  "process_peak_rss_kib": 18444540,
+  "query_loss": 0.19909751415252686,
+  "ranking_labels": {
+    "A": 32,
+    "B": 33
+  },
+  "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "scope": "tiny real-model compatibility smoke; no corpus training or downstream evaluation",
+  "seed": 17,
+  "tool_observation_tokens_appended": 2,
+  "total_seconds": 10.965136216953397
+}

@@ -1,0 +1,11 @@
+{
+  "latent_length": 3,
+  "candidate_actions": 2,
+  "coverage_records": 4,
+  "relation_records": 2,
+  "batch_size": 2,
+  "updates_per_source": 1,
+  "seed": 17,
+  "note": "CPU/mock and deterministic generator only; not a benchmark run"
+}
+

@@ -1,0 +1,30 @@
+{
+  "evaluation_inputs_seen": false,
+  "evolve_steps": null,
+  "exposure_by_record": {
+    "rec_1df85156c7ac4836577d": 1,
+    "rec_227bca6bdfa7117bb524": 1,
+    "rec_3544a46c8bd355e9a300": 5,
+    "rec_870d518be901c60d6530": 1,
+    "rec_de134f0c4686e00329fb": 1,
+    "rec_f27e2f206242d10eb0b2": 1
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 6,
+    "dspy/propose/utils.py": 1,
+    "tests/clients/test_cache.py": 1,
+    "tests/primitives/test_python_interpreter.py": 2
+  },
+  "map_text": "## CONTEXT ROADMAP\n[cr-00003] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3\n",
+  "map_tokens": 45,
+  "phase": "frozen_before_evaluation",
+  "protocol": "offline_peek_map",
+  "replay_fraction": 0.5,
+  "scores": {},
+  "serialized_bytes": 933,
+  "steps": 10,
+  "token_budget": 64,
+  "token_counter": "Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "update_count": 10,
+  "upstream_policy": true
+}

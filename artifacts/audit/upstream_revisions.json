@@ -1,0 +1,37 @@
+{
+  "audit_date_utc": "2026-09-10",
+  "machine_studying": {
+    "blog": "https://jacobxli.com/blog/2026/machine-studying/",
+    "paper": "https://openreview.net/pdf?id=e7duOnFgL7",
+    "paper_openreview_id": "e7duOnFgL7"
+  },
+  "peek": {
+    "repository": "https://github.com/zhuohangu/peek.git",
+    "commit": "8b109771b51126284ea337f23827facde1db05ed",
+    "commit_date": "2026-06-09T21:15:31-05:00",
+    "license": "Apache-2.0"
+  },
+  "studybench": {
+    "repository": "https://huggingface.co/datasets/jacobli/studybench",
+    "commit": "11e27d7c4e7ac98515ef383fe4bf6700ff6821f2",
+    "dspy_jsonl_sha256": "c814c8da2d49aa892930a9d4408f087707720d9e6f84511de7479d0854580325",
+    "openclaw_jsonl_sha256": "d08f953f9480623a54762fae9fa8b35a9538b375692c4d058895aeba5a1dc50f",
+    "license": "CC-BY-4.0 with embedded MIT excerpts"
+  },
+  "dspy_corpus": {
+    "repository": "https://github.com/stanfordnlp/dspy.git",
+    "commit": "9cdb0aac28b2a04b064e40697ccd301872cf6a43",
+    "commit_date": "2026-03-31T11:57:43-04:00",
+    "license": "MIT"
+  },
+  "qwen": {
+    "model_id": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "license": "Apache-2.0"
+  },
+  "transformers": {
+    "version": "5.3.0",
+    "tag_commit": "aad13b87ed59f2afcfaebc985f403301887a35fc"
+  }
+}
+

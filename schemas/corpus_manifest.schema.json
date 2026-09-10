@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Latent Study Corpus Manifest",
+  "type": "object",
+  "required": ["schema_version", "corpus_hash", "documents", "units", "excluded", "counts"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "corpus_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "documents": {"type": "array"},
+    "units": {"type": "array"},
+    "excluded": {"type": "array"},
+    "counts": {"type": "object"}
+  }
+}

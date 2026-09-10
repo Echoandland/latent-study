@@ -1,0 +1,30 @@
+{
+  "evaluation_inputs_seen": false,
+  "evolve_steps": null,
+  "exposure_by_record": {
+    "rec_1df85156c7ac4836577d": 1,
+    "rec_227bca6bdfa7117bb524": 1,
+    "rec_3544a46c8bd355e9a300": 5,
+    "rec_870d518be901c60d6530": 1,
+    "rec_de134f0c4686e00329fb": 1,
+    "rec_f27e2f206242d10eb0b2": 1
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 6,
+    "dspy/propose/utils.py": 1,
+    "tests/clients/test_cache.py": 1,
+    "tests/primitives/test_python_interpreter.py": 2
+  },
+  "map_text": "## CONTEXT ROADMAP\n[cr-00001] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3, unit_552ff86916acc5e0f0e3\n[cr-00002] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3\n[cr-00003] dspy/propose/utils.py: evidence units unit_00df70452dc54b8454f1\n[cr-00004] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3\n[cr-00005] tests/clients/test_cache.py: evidence units unit_0060686553535a2f5e9d\n[cr-00006] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3\n[cr-00007] tests/primitives/test_python_interpreter.py: evidence units unit_002876159f2e49c6a64f, unit_10ed74903abdc15e81c5\n[cr-00008] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3\n[cr-00009] tests/primitives/test_python_interpreter.py: evidence units unit_002876159f2e49c6a64f\n[cr-00010] dspy/dsp/utils/utils.py: evidence units unit_001ba3cd1725807042a3\n",
+  "map_tokens": 452,
+  "phase": "frozen_before_evaluation",
+  "protocol": "offline_peek_map",
+  "replay_fraction": 0.5,
+  "scores": {},
+  "serialized_bytes": 1735,
+  "steps": 10,
+  "token_budget": 1024,
+  "token_counter": "Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "update_count": 10,
+  "upstream_policy": true
+}

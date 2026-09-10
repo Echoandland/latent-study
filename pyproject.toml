@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latent-study"
+version = "0.1.0"
+description = "Offline corpus-specific soft-prefix studying with a frozen language model"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = []
+
+[project.optional-dependencies]
+train = [
+  "torch==2.6.0",
+  "transformers==5.3.0",
+  "safetensors==0.8.0",
+  "accelerate==1.14.0",
+]
+peek = [
+  "peek-ai @ git+https://github.com/zhuohangu/peek.git@8b109771b51126284ea337f23827facde1db05ed",
+]
+test = ["pytest==9.1.1"]
+
+[project.scripts]
+latent-study = "latent_study.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

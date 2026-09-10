@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+artifacts/checkpoints/
+data/corpus/
+data/evaluation/
+data/models/
+*.safetensors
+*.gguf
+*.ckpt
+pytorch_model*.bin
+model-*-of-*.bin
