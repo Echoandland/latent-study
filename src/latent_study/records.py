@@ -7,7 +7,7 @@ import re
 from typing import Iterable
 
 from .io import canonical_hash, sha256_text
-from .rewards import RewardConfig, score_action
+from .rewards import RewardConfig, score_action, visible_groups
 from .schema import CorpusUnit, EvidenceGroup, EvidenceSpan, StudyRecord, ToolAction
 from .search import CodingTools, CorpusSearch
 
@@ -84,6 +84,18 @@ def _outcomes(actions, search, groups, previsible=()):
                               RewardConfig(), previsible_group_ids=previsible) for action in actions)
 
 
+def _group_exposeable(search: CodingTools, group: EvidenceGroup) -> bool:
+    """Prove visibility by executing a legal action through final rendering."""
+    for span in group.alternatives:
+        action = ToolAction(tool="read_file", path=span.source_path,
+                            start_line=span.start_line, end_line=span.end_line)
+        valid, hits, observation = search.execute(action)
+        header = f"{span.source_path}:{span.start_line}-{span.end_line}\n"
+        if (valid and header in observation and group.group_id in visible_groups(hits, (group,))):
+            return True
+    return False
+
+
 def _record(unit, family, prompt, group, negative, corpus_hash, seed, template, search, n_actions,
             *, validation, observation="", observation_action=None):
     actions = _actions(unit, group.alternatives[0], negative, n_actions)
@@ -110,6 +122,7 @@ def generate_coverage_records(units: Iterable[CorpusUnit], corpus_hash: str, *, 
         negative = _verified_negative(unit, ordered, unit.definitions)
         if negative is None: continue
         group = EvidenceGroup("definition", (span,))
+        if not _group_exposeable(search, group): continue
         records.append(_record(
             unit, "comprehension",
             f"Find and interpret the authoritative declaration of `{unit.name}` in the corpus.",
@@ -133,13 +146,15 @@ def generate_family_records(units: Iterable[CorpusUnit], corpus_hash: str, *, se
         negative = _verified_negative(unit, ordered, unit.definitions)
         if negative is None: continue
         group = EvidenceGroup("interpreted_fact", (span,))
+        if not _group_exposeable(search, group): continue
         if unit.kind == "module_section":
             prompt = f"Which exact corpus statement establishes the configured symbol `{unit.definitions[0]}`?"
             family, template, validator = "evidence_interpretation", "atomic-assignment-interpretation-v1", "ast_assignment_or_import"
         else:
             wrong = negative.definitions[0]
-            prompt = (f"Correct exactly one false fact in this claim using corpus evidence: "
-                      f"`{wrong}` is the declaration named `{unit.name}`.")
+            if wrong == unit.name: continue
+            prompt = ("Correct the single mistaken identifier in this corpus-navigation claim using the "
+                      f"visible declaration: `{unit.source_path}:{span.start_line}` declares `{wrong}`.")
             family, template, validator = "misconception_correction", "single-name-misconception-v1", "single_verified_name_substitution"
         out.append(_record(unit, family, prompt, group, negative, corpus_hash, seed + index, template,
                            search, n_actions, validation={"method": validator, "evidence_exposeable": True,
@@ -166,16 +181,22 @@ def generate_relation_records(manifest_or_units, corpus_hash: str, *, seed: int 
         negative = _verified_negative(callee, ordered, forbidden)
         if negative is None: continue
         groups = (EvidenceGroup("caller_call", (caller_span,)), EvidenceGroup("callee_declaration", (callee_span,)))
+        if not all(_group_exposeable(search, group) for group in groups): continue
+        # Both relation families use the same modeled two-step sequence: the
+        # caller span is exposed first, then the agent navigates to the callee.
+        # Keeping the caller group pre-visible makes it possible for a legal
+        # second action to satisfy all required evidence groups.
+        observation_action = ToolAction(tool="read_file", path=caller.source_path,
+                                        start_line=caller_span.start_line, end_line=caller_span.end_line)
+        valid_observation, observation_hits, observation = search.execute(observation_action)
+        previsible = visible_groups(observation_hits, groups) if valid_observation else ()
+        if "caller_call" not in previsible: continue
         families = ("relation_induction", "navigation") if include_navigation else ("relation_induction",)
         for family in families:
             if limit is not None and len(records) >= limit: return records
-            prompt = (f"Verify the call relation from `{relation['caller_symbol']}` to "
-                      f"`{relation['callee_symbol']}` using both necessary evidence groups.")
-            observation, observation_action, previsible = "", None, ()
+            prompt = (f"Use the visible caller evidence to verify the call relation from "
+                      f"`{relation['caller_symbol']}` to `{relation['callee_symbol']}` and locate the callee declaration.")
             if family == "navigation":
-                observation_action = ToolAction(tool="read_file", path=caller.source_path,
-                                                start_line=caller_span.start_line, end_line=caller_span.end_line)
-                _, _, observation = search.execute(observation_action); previsible = ("caller_call",)
                 prompt = f"Continue from the observed caller evidence and navigate to `{relation['callee_symbol']}`."
             actions = _actions(callee, callee_span, negative, n_actions)
             outcomes = _outcomes(actions, search, groups, previsible)
@@ -188,6 +209,7 @@ def generate_relation_records(manifest_or_units, corpus_hash: str, *, seed: int 
                 verified_negative_chunk_ids=(negative.unit_id,), candidate_actions=actions, outcomes=outcomes,
                 validation={"method": "uniquely_resolved_ast_call", "resolution_rule": relation["resolution_rule"],
                             "relation_provenance": relation, "evidence_exposeable": True,
+                            "previsible_group_ids": list(previsible),
                             "generator": "deterministic_evidence_first"}, corpus_hash=corpus_hash,
                 source_hash=caller.source_hash, template_id=template, random_seed=seed + rel_index))
     return records

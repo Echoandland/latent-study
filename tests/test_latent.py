@@ -65,7 +65,8 @@ def test_labels_prefix_masks_positions_cache_no_duplication_and_save_load(tmp_pa
     wrapper = SoftPrefixLM(ToyLM(), ToyTokenizer(), length=3)
     assert wrapper.validate_labels("A", "B") == (3, 4)
     with pytest.raises(ValueError): wrapper.validate_labels("AA", "B")
-    ids = wrapper.chat_ids([{"role": "user", "content": "x"}])
+    ids = wrapper.chat_ids([{"role": "system", "content": "rules"},
+                            {"role": "user", "content": "x"}])
     session = PrefixAgentSession(wrapper, ids)
     first = wrapper.model.calls[-1]
     assert first["input"] == ids.shape[1] + 3
@@ -94,6 +95,6 @@ def test_qwen_hybrid_state_uses_exact_recompute_fallback():
     state = wrapper.prefill_ids(initial)
     state = wrapper.append_ids(state, torch.tensor([[4, 5, 6]]))
     full = wrapper.prefill_ids(torch.tensor([[1, 2, 3, 4, 5, 6]]), use_cache=False)
-    assert state.cache_mode == "full_recompute"
+    assert state.cache_mode == "full_recompute_fallback"
     assert torch.equal(state.next_logits, full.next_logits)
     assert state.prefix_insertions == 1

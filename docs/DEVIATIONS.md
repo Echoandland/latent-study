@@ -8,7 +8,7 @@ PEEK is pinned at `8b109771b51126284ea337f23827facde1db05ed`. `offline_peek_map`
 
 - PEEK's normal protocol is online and uses inference-time task trajectories. Here all updates use corpus-derived study records before evaluation; the map is then frozen. This is the primary fair baseline, not original online/transductive PEEK.
 - The PEEK initial annotated map is larger than a 64-token budget. Both baseline sizes therefore start from `## CONTEXT ROADMAP` with no filler, retaining upstream map syntax and update/eviction behavior.
-- The smoke used a whitespace token approximation because the Qwen3.5 tokenizer was unavailable. Production `peek-study` requires the actual tokenizer unless the explicit smoke flag is passed.
+- Historical smoke used a whitespace token approximation. Production `peek-study` now requires the actual Qwen tokenizer; the current PEEK attempt used it and is reported below.
 
 ## Implemented locally
 
@@ -26,12 +26,19 @@ The release is fully public, not hidden. This project treats it as evaluation-on
 
 ## Smoke deviations
 
-- Qwen3.5-9B was downloaded at the pinned revision after GPU access was confirmed. A repository-local Transformers 5.3 environment ran the L=3 real forward/backward/save/cache/generation smoke successfully. Fast `fla` and `causal_conv1d` kernels were not installed, so the measured run used Transformers' slower PyTorch fallback. This affects timing, not the protocol. No downstream evaluation is claimed.
+- Qwen3.5-9B was loaded at the pinned revision on an RTX 6000 Ada GPU. The bounded frozen-base run generated 50 records with N=4; L=3 replay=0 and replay=50% pilots passed the aggregate objective gate. The strengthened synthetic real-Qwen smoke's query-only branch still rises (and therefore fails closed); no latent is promoted from that smoke. Fast `fla` and `causal_conv1d` kernels were not installed, so all measurements use Transformers' slower PyTorch fallback.
 - The 6-record smoke uses deterministic structural candidates with `N=2`, not frozen-base sampling. Every record marks `base_model_candidates=false`.
 - No full record bank, full latent training, checkpoint selection, OpenClaw run, literature task, or expensive experiment was started.
 - The current trainer is single-process/single-GPU. Records and shards are deterministic and generation workers can be run independently, but DDP synchronization is not implemented yet. Tensor parallelism and distributed frameworks were intentionally not added.
 - Corpus “eligible tokens” in the audit are deterministic lexical estimates. Actual Qwen tokenizer counts must replace them in final exposure reports.
 - Fixed corpus probes are held-out prompt templates within the same fully trained corpus, not unseen-corpus generalization. They are not used for checkpoint selection.
+
+## Repair status (2026-09-11)
+
+- Older checked-in result artifacts are retained but fail provenance-schema validation and are historical only.
+- The prior 64-token PEEK artifact is an empty header-only map and is explicitly a failed baseline. The 1024-token semantic smoke used a different tiny bank, so it is not a paired comparison.
+- The pinned Qwen3.5 implementation only uses the recurrent DeltaNet path for one-token cached inputs. Multi-token tool observations cannot be appended as a chunk without discarding linear-attention history. Earlier runs also observed non-equivalent torch chunk-versus-recurrent logits. The repaired code therefore retains exact full recomputation, labels it `full_recompute_fallback`, makes no cache/efficiency claim, and requires explicit acknowledgement.
+- Real-Qwen candidate generation and both L=3 pilots were rerun. PEEK-64 was attempted on the exact six-record subset and failed after three malformed Distiller attempts; per protocol the paired PEEK-1024 run and downstream evaluation remain blocked rather than emitting a false 64-token baseline.
 
 ## Remaining requirements before a full run
 

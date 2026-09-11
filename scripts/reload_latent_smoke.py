@@ -4,6 +4,9 @@ import argparse, json, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "src"))
 from latent_study.latent import load_qwen
+from latent_study.artifacts import provenance
+from latent_study.io import canonical_hash
+from latent_study.search import TOOL_SCHEMA_HASH
 
 parser = argparse.ArgumentParser(); parser.add_argument("--model", required=True); parser.add_argument("--revision")
 parser.add_argument("--checkpoint", required=True); parser.add_argument("--device", default="cuda:0")
@@ -14,9 +17,18 @@ reference = torch.load(args.checkpoint + ".reference.pt", map_location="cpu", we
 payload = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
 wrapper = load_qwen(args.model, length=int(payload["length"]), dtype="bfloat16", revision=args.revision, device=args.device)
 wrapper.load(args.checkpoint, expected_corpus_hash="real-smoke-only")
-actual = wrapper.prefill_ids(reference["input_ids"].to(wrapper.prefix.device), use_cache=False).next_logits.detach().float().cpu()
+actual = wrapper.prefill_ids(reference["input_ids"].to(wrapper.prefix.device), use_cache=False,
+                             memory_boundary=reference["memory_boundary"]).next_logits.detach().float().cpu()
 error = float((actual - reference["logits"]).abs().max())
-result = {"fresh_process": True, "max_abs_error": error, "tolerance": args.tolerance, "passed": error <= args.tolerance}
+result = {"fresh_process": True, "max_abs_error": error, "tolerance": args.tolerance,
+          "passed": error <= args.tolerance, "artifact_schema_version": 1,
+          "provenance": provenance(artifact_type="latent_reload_report",
+                                   resolved_config_hash=canonical_hash(vars(args)),
+                                   model_id="Qwen/Qwen3.5-9B",
+                                   model_revision=args.revision or "unresolved",
+                                   corpus_hash="real-smoke-only", tool_schema_hash=TOOL_SCHEMA_HASH,
+                                   command="python scripts/reload_latent_smoke.py",
+                                   cli_overrides=vars(args), repository_root=ROOT)}
 print(json.dumps(result, indent=2))
 if args.output:
     from latent_study.io import write_json

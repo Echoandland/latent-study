@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import time
+import hashlib
 from pathlib import Path
 
 from .objectives import query_pairwise_loss, ranking_loss, select_preference
@@ -14,17 +15,28 @@ from .schema import EvidenceGroup, EvidenceSpan, StudyRecord, ToolAction
 
 def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, model_id: str,
           learning_rate: float = 1e-3, query_weight: float = 1.0,
+          weight_decay: float = 0.01,
+          optimizer_name: str = "AdamW",
           lambda_rank: float = 1.0, delta: float = 0.25,
           beta: float = 1.0, rank_margin: float = 1.0,
           replay_fraction: float = 0.5, seed: int = 0, batch_size: int = 2,
           updates_per_source: int = 2, relevant_label: str = "A", irrelevant_label: str = "B",
-          probes: list[dict] | None = None, tools=None, gradient_accumulation_steps: int = 1):
+          probes: list[dict] | None = None, tools=None, gradient_accumulation_steps: int = 1,
+          model_revision: str = "", artifact_provenance: dict | None = None,
+          require_objective_decrease: bool = True):
     import torch
     prefix_lm.assert_frozen()
+    if not records: raise ValueError("training bank is empty")
     if gradient_accumulation_steps != 1:
         raise ValueError("MVP currently supports gradient_accumulation_steps=1 only")
     rel_id, irr_id = prefix_lm.validate_labels(relevant_label, irrelevant_label)
-    optimizer = torch.optim.AdamW(prefix_lm.trainable_parameters(), lr=learning_rate)
+    optimizers = {"AdamW": torch.optim.AdamW, "SGD": torch.optim.SGD}
+    if optimizer_name not in optimizers:
+        raise ValueError(f"unsupported optimizer {optimizer_name!r}; expected one of {sorted(optimizers)}")
+    optimizer = optimizers[optimizer_name](prefix_lm.trainable_parameters(), lr=learning_rate,
+                                           weight_decay=weight_decay)
+    frozen_before = _parameter_digest(prefix_lm.model)
+    prefix_before = prefix_lm.prefix.detach().clone()
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats(prefix_lm.prefix.device)
     by_source = {}
@@ -32,9 +44,10 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
         by_source.setdefault(record.source_id, []).append(record)
     replay = SourceReplay(seed, replay_fraction)
     report = {"shards": [], "skipped_preferences": 0, "losses": [], "started": time.time()}
-    diagnostic_record = records[0]
-    report["objective_diagnostics_before"] = _record_objectives(
-        prefix_lm, diagnostic_record, units_by_id, rel_id, irr_id, relevant_label, irrelevant_label,
+    report["gradient_balance"] = "rms_norm_sum_per_active_objective"
+    diagnostic_records = records[:min(8, len(records))]
+    report["objective_diagnostics_before"] = _aggregate_objectives(
+        prefix_lm, diagnostic_records, units_by_id, rel_id, irr_id, relevant_label, irrelevant_label,
         query_weight=query_weight, rank_weight=lambda_rank, delta=delta, beta=beta, margin=rank_margin)
     for source in sorted(by_source):
         replay.add_source(source, by_source[source])
@@ -52,6 +65,7 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
             rank_den = sum(bool(record.verified_negative_chunk_ids) and lambda_rank > 0
                            for record in batch.records)
             query_values, rank_values = [], []
+            query_gradient = rank_gradient = None
             for index, record in enumerate(batch.records):
                 pair = pairs[index]
                 if pair is not None and query_weight > 0:
@@ -65,7 +79,8 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
                         prefix_lm.mean_action_logprob(context, pos_ids),
                         prefix_lm.mean_action_logprob(context, neg_ids),
                         positive.reward - negative.reward, beta=beta)
-                    (query_loss / query_den).backward()
+                    gradient = torch.autograd.grad(query_loss / query_den, prefix_lm.prefix)[0]
+                    query_gradient = gradient if query_gradient is None else query_gradient + gradient
                     query_values.append(float(query_loss.detach()))
                     (current_losses if record.source_id == source else previous_losses).append(
                         float(query_loss.detach()))
@@ -89,14 +104,34 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
                                 add_generation_prompt=True), rel_id, irr_id))
                         group_scores.append((positives, negatives))
                     rank_value = lambda_rank * ranking_loss(group_scores, margin=rank_margin)
-                    (rank_value / rank_den).backward()
+                    gradient = torch.autograd.grad(rank_value / rank_den, prefix_lm.prefix)[0]
+                    rank_gradient = gradient if rank_gradient is None else rank_gradient + gradient
                     rank_values.append(float(rank_value.detach()))
                     (current_losses if record.source_id == source else previous_losses).append(
                         float(rank_value.detach()))
             if not query_values and not rank_values:
                 continue
+            gradients = [gradient for gradient in (query_gradient, rank_gradient) if gradient is not None]
+            if len(gradients) == 2:
+                # Equal-RMS multi-objective descent: unless the gradients are
+                # exactly antiparallel, their normalized sum has positive dot
+                # product with each objective gradient. RMS scaling preserves
+                # a useful per-coordinate step after the fp32 prefix is cast
+                # to the frozen LM's bf16 activations.
+                gradients = [gradient / gradient.float().square().mean().sqrt().clamp_min(1e-12)
+                             for gradient in gradients]
+                prefix_lm.prefix.grad = gradients[0] + gradients[1]
+            else:
+                prefix_lm.prefix.grad = gradients[0]
             if prefix_lm.prefix.grad is None or not torch.count_nonzero(prefix_lm.prefix.grad):
                 raise RuntimeError("soft prefix did not receive a nonzero gradient")
+            report.setdefault("gradient_diagnostics", []).append({
+                "query_rms": (float(query_gradient.float().square().mean().sqrt())
+                              if query_gradient is not None else None),
+                "rank_rms": (float(rank_gradient.float().square().mean().sqrt())
+                             if rank_gradient is not None else None),
+                "combined_rms": float(prefix_lm.prefix.grad.float().square().mean().sqrt()),
+            })
             if any(p.grad is not None for p in prefix_lm.model.parameters()):
                 raise RuntimeError("a frozen LM parameter received a gradient buffer")
             optimizer.step()
@@ -110,10 +145,36 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
                                  "previous_source_loss": _mean(previous_losses),
                                  "fixed_corpus_probes": probe_metrics,
                                  "probe_use": "measurement only; never checkpoint selection"})
-    prefix_lm.save(output_path, corpus_hash=corpus_hash, model_id=model_id)
-    report["objective_diagnostics_after"] = _record_objectives(
-        prefix_lm, diagnostic_record, units_by_id, rel_id, irr_id, relevant_label, irrelevant_label,
+    report["objective_diagnostics_after"] = _aggregate_objectives(
+        prefix_lm, diagnostic_records, units_by_id, rel_id, irr_id, relevant_label, irrelevant_label,
         query_weight=query_weight, rank_weight=lambda_rank, delta=delta, beta=beta, margin=rank_margin)
+    frozen_after = _parameter_digest(prefix_lm.model)
+    report["prefix_changed"] = not torch.equal(prefix_before, prefix_lm.prefix.detach())
+    report["frozen_lm_bitwise_unchanged"] = frozen_before == frozen_after
+    report["lm_gradient_buffers"] = sum(p.grad is not None for p in prefix_lm.model.parameters())
+    checks = {}
+    before, after = report["objective_diagnostics_before"]["aggregate"], report["objective_diagnostics_after"]["aggregate"]
+    if query_weight:
+        checks["query_decreased"] = after["query"] < before["query"]
+    if lambda_rank:
+        checks["rank_decreased"] = after["rank"] < before["rank"]
+    if query_weight and lambda_rank:
+        checks["combined_decreased"] = after["combined"] < before["combined"]
+    report["objective_decrease_checks"] = checks
+    required_checks = (["combined_decreased"] if query_weight and lambda_rank else
+                       ["query_decreased"] if query_weight else ["rank_decreased"])
+    report["objective_decrease_required"] = required_checks
+    if not report["prefix_changed"]:
+        raise RuntimeError("controlled optimization did not change the soft prefix")
+    if not report["frozen_lm_bitwise_unchanged"] or report["lm_gradient_buffers"]:
+        raise RuntimeError("frozen LM integrity check failed")
+    if require_objective_decrease and not all(checks[name] for name in required_checks):
+        raise RuntimeError(
+            "training objective overfit gate failed: "
+            f"checks={checks}, required={required_checks}, before={before}, after={after}, "
+            f"gradient_diagnostics={report.get('gradient_diagnostics', [])}")
+    prefix_lm.save(output_path, corpus_hash=corpus_hash, model_id=model_id,
+                   model_revision=model_revision, provenance=artifact_provenance)
     report.update({"elapsed_seconds": time.time() - report["started"],
                    "exposure_by_record": replay.ledger.by_record,
                    "exposure_by_source": replay.ledger.by_source,
@@ -122,6 +183,11 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
                    "replay_source_imbalance": replay.source_imbalance(kind="previous"),
                    "replay_fraction": replay_fraction,
                    "batch_size": batch_size, "gradient_accumulation_steps": gradient_accumulation_steps,
+                   "optimizer": {"name": optimizer_name, "learning_rate": learning_rate,
+                                 "weight_decay": weight_decay},
+                   "deployable_latent_tensor_bytes": (prefix_lm.prefix.numel()
+                                                       * prefix_lm.prefix.element_size()),
+                   "latent_checkpoint_artifact_bytes": Path(output_path).stat().st_size,
                    "serialized_bytes": Path(output_path).stat().st_size,
                    "training_peak_memory_bytes": (torch.cuda.max_memory_allocated(prefix_lm.prefix.device)
                                                    if torch.cuda.is_available() else None)})
@@ -130,6 +196,27 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
 
 def _mean(values):
     return sum(values) / len(values) if values else None
+
+
+def _parameter_digest(model) -> str:
+    """Streaming bitwise digest; avoids retaining a second copy of a large LM."""
+    import torch
+    digest = hashlib.sha256()
+    for name, parameter in model.named_parameters():
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tuple(parameter.shape)).encode("ascii"))
+        digest.update(parameter.detach().contiguous().view(torch.uint8).cpu().numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _aggregate_objectives(prefix_lm, records, units_by_id, rel_id, irr_id,
+                          relevant_label, irrelevant_label, **kwargs):
+    per_record = [_record_objectives(prefix_lm, record, units_by_id, rel_id, irr_id,
+                                     relevant_label, irrelevant_label, **kwargs)
+                  for record in records]
+    aggregate = {key: (_mean([item[key] for item in per_record]) or 0.0)
+                 for key in ("query", "rank", "combined")}
+    return {"records": per_record, "aggregate": aggregate, "record_count": len(per_record)}
 
 
 def _record_objectives(prefix_lm, record, units_by_id, rel_id, irr_id, relevant_label, irrelevant_label,

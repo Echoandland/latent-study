@@ -25,12 +25,38 @@ def test_conservative_relation_resolution_excludes_ambiguous_receivers(tmp_path)
     accepted = manifest["verified_relations"]
     assert any(r["resolution_rule"] == "direct_local_function" and r["callee_path"] == "a.py" for r in accepted)
     assert not any(r["callee_symbol"] == "append" for r in accepted)
-    assert manifest["relation_audit"]["excluded_by_reason"]["unresolved_receiver_call"] >= 1
+    assert manifest["relation_audit"]["excluded_by_reason"]["lexically_shadowed_receiver"] >= 1
     records = generate_relation_records(manifest, manifest["corpus_hash"],
                                         search=CodingTools(root, manifest["units"]))
     assert all(r.validation["resolution_rule"] in {"direct_local_function", "from_import_symbol",
                                                     "import_alias_attribute", "class_local_method"}
                for r in records)
+
+
+def test_relation_resolution_accounts_for_lexical_shadowing_and_duplicates(tmp_path):
+    root = tmp_path / "shadow"; root.mkdir()
+    (root / "target.py").write_text(
+        "def target():\n    return 1\n\n"
+        "def valid():\n    return target()\n\n"
+        "def parameter(target):\n    return target()\n\n"
+        "def reassigned():\n    target = lambda: 2\n    return target()\n\n"
+        "def looped(items):\n    for target in items:\n        target()\n\n"
+        "def global_valid():\n    global target\n    return target()\n\n"
+        "def global_bad():\n    global target\n    target = lambda: 4\n    return target()\n\n"
+        "def nested():\n    def target():\n        return 3\n    return target()\n")
+    (root / "lib.py").write_text("def imported():\n    return 4\n")
+    (root / "imports.py").write_text(
+        "from lib import imported\nfrom lib import imported\n\ndef caller():\n    return imported()\n")
+    manifest = build_manifest(root)
+    accepted = manifest["verified_relations"]
+    assert any(r["caller_symbol"] == "valid" and r["callee_symbol"] == "target" for r in accepted)
+    assert any(r["caller_symbol"] == "global_valid" and r["callee_symbol"] == "target" for r in accepted)
+    assert not any(r["caller_symbol"] in {"parameter", "reassigned", "looped", "nested", "global_bad"}
+                   and r["callee_symbol"] == "target" for r in accepted)
+    audit = manifest["relation_audit"]
+    assert audit["shadowed"] >= 4
+    assert audit["ambiguous"] >= 1
+    assert audit["excluded_by_reason"]["duplicate_import_binding"] == 1
 
 
 def test_atomic_evidence_late_in_long_function_is_visible(tmp_path):
@@ -69,9 +95,9 @@ def test_observation_is_real_tool_role_and_changes_action_logits():
 def test_candidate_generation_receives_observation():
     class CapturingTokenizer:
         eos_token_id = 0
-        def __init__(self): self.messages = None
-        def apply_chat_template(self, messages, **kwargs):
-            self.messages = messages; return torch.tensor([[1, 2]])
+        def __init__(self): self.texts = []
+        def __call__(self, text, **kwargs):
+            self.texts.append(text); return SimpleNamespace(input_ids=torch.tensor([[1, 2]]))
         def decode(self, ids, **kwargs): return '{"tool":"grep","query":"beta","path":"x.py"}'
     class FakeModel:
         device = torch.device("cpu")
@@ -79,13 +105,20 @@ def test_candidate_generation_receives_observation():
     tokenizer = CapturingTokenizer()
     actions = sample_base_actions(FakeModel(), tokenizer, _record("seen caller evidence"), n=1, seed=3)
     assert actions[0].tool == "grep"
-    assert any(m["role"] == "tool" and "seen caller evidence" in m["content"] for m in tokenizer.messages)
+    assert "<tool_response>" in "".join(tokenizer.texts)
+    assert "seen caller evidence" in "".join(tokenizer.texts)
 
 
 def test_resolved_config_contains_every_execution_control():
     config = load_config("configs/dspy_mvp.json")
-    assert config["candidate_generation"]["n"] == 4
+    assert config["candidate_generation"] == {"n": 4, "source": "frozen_base_without_latent",
+                                                "do_sample": True, "temperature": 0.8,
+                                                "top_p": 0.95, "max_new_tokens": 96}
     assert config["tools"]["interface"] == "pinned_local_coding_tools_v2"
     assert config["objective"] == {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0,
-                                    "query_weight": 1.0, "ranking_weight": 1.0}
+                                    "query_weight": 1.0, "ranking_weight": 1.0,
+                                    "gradient_balance": "rms_norm_sum"}
     assert config["training"]["gradient_accumulation_steps"] == 1
+    assert config["training"]["optimizer"] == "AdamW"
+    assert config["tools"]["max_query_chars"] == 256
+    assert config["peek"] == {"max_new_tokens": 384, "retries": 2}

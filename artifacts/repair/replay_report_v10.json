@@ -1,0 +1,885 @@
+{
+  "batches": [
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_38d8ae2ce18d3fad6483",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "docs/docs/api/optimizers/MIPROv2.md",
+      "step": 0
+    },
+    {
+      "current": 2,
+      "previous": 0,
+      "record_ids": [
+        "rec_38d8ae2ce18d3fad6483",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "docs/docs/api/optimizers/MIPROv2.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5fddc576a8e13dfa15ba",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "docs/docs/learn/programming/mcp.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5fddc576a8e13dfa15ba",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "docs/docs/learn/programming/mcp.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_2a94cd86cb771d6fa0ea",
+        "rec_5fddc576a8e13dfa15ba"
+      ],
+      "source": "docs/docs/learn/programming/signatures.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_2a94cd86cb771d6fa0ea",
+        "rec_5fddc576a8e13dfa15ba"
+      ],
+      "source": "docs/docs/learn/programming/signatures.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c21651437cd0087ba3ec",
+        "rec_2a94cd86cb771d6fa0ea"
+      ],
+      "source": "docs/docs/tutorials/llms_txt_generation/index.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c21651437cd0087ba3ec",
+        "rec_2a94cd86cb771d6fa0ea"
+      ],
+      "source": "docs/docs/tutorials/llms_txt_generation/index.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d88986ce897debe7dbb0",
+        "rec_c21651437cd0087ba3ec"
+      ],
+      "source": "docs/docs/tutorials/streaming/index.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d88986ce897debe7dbb0",
+        "rec_c21651437cd0087ba3ec"
+      ],
+      "source": "docs/docs/tutorials/streaming/index.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_e8de64cbf35a0fee881e",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "docs/docs/tutorials/yahoo_finance_react/index.md",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_3eba2b34a9f31f8a734a",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "docs/docs/tutorials/yahoo_finance_react/index.md",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_381fef3c7ce32f651148",
+        "rec_e8de64cbf35a0fee881e"
+      ],
+      "source": "dspy/adapters/json_adapter.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c20de19bbabf16dd340c",
+        "rec_3eba2b34a9f31f8a734a"
+      ],
+      "source": "dspy/adapters/json_adapter.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_53cc183dc80b746164ec",
+        "rec_c20de19bbabf16dd340c"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_4f1c77f67f3176b136f2",
+        "rec_381fef3c7ce32f651148"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_69569219c941d9bc1558",
+        "rec_38d8ae2ce18d3fad6483"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 2
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_339f0a35b42740b84486",
+        "rec_d88986ce897debe7dbb0"
+      ],
+      "source": "dspy/dsp/utils/utils.py",
+      "step": 3
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5d920272caec59e138a8",
+        "rec_4f1c77f67f3176b136f2"
+      ],
+      "source": "dspy/evaluate/evaluate.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_cf7f491719449a9c9ee9",
+        "rec_69569219c941d9bc1558"
+      ],
+      "source": "dspy/evaluate/evaluate.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_772503b9044d4a947cbd",
+        "rec_cf7f491719449a9c9ee9"
+      ],
+      "source": "dspy/predict/aggregation.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_b5192db4a54a391cd8fe",
+        "rec_5d920272caec59e138a8"
+      ],
+      "source": "dspy/predict/aggregation.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_239994ec8f1eb2b14052",
+        "rec_b5192db4a54a391cd8fe"
+      ],
+      "source": "dspy/primitives/example.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_239994ec8f1eb2b14052",
+        "rec_772503b9044d4a947cbd"
+      ],
+      "source": "dspy/primitives/example.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d924001a833b216aacad",
+        "rec_239994ec8f1eb2b14052"
+      ],
+      "source": "dspy/primitives/module.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_71bd0e5f62fed837e48c",
+        "rec_239994ec8f1eb2b14052"
+      ],
+      "source": "dspy/primitives/module.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_8ef8214158df288d85a9",
+        "rec_71bd0e5f62fed837e48c"
+      ],
+      "source": "dspy/propose/utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5568453ac71919993373",
+        "rec_d924001a833b216aacad"
+      ],
+      "source": "dspy/propose/utils.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_dfd0433f31a941cb53c0",
+        "rec_8ef8214158df288d85a9"
+      ],
+      "source": "dspy/teleprompt/gepa/gepa_utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_dfd0433f31a941cb53c0",
+        "rec_5568453ac71919993373"
+      ],
+      "source": "dspy/teleprompt/gepa/gepa_utils.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_35c5227ba10289b154c4",
+        "rec_dfd0433f31a941cb53c0"
+      ],
+      "source": "dspy/utils/dummies.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_12825a48341570daffe0",
+        "rec_dfd0433f31a941cb53c0"
+      ],
+      "source": "dspy/utils/dummies.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_cb2e3ab7354c1cd2a394",
+        "rec_35c5227ba10289b154c4"
+      ],
+      "source": "tests/adapters/test_chat_adapter.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_63ae5d0bca3cc08e91e5",
+        "rec_12825a48341570daffe0"
+      ],
+      "source": "tests/adapters/test_chat_adapter.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_9ca91d10ca113b131640",
+        "rec_cb2e3ab7354c1cd2a394"
+      ],
+      "source": "tests/adapters/test_tool.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_a3e62bfe21a5da4c9266",
+        "rec_63ae5d0bca3cc08e91e5"
+      ],
+      "source": "tests/adapters/test_tool.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d7258b73498e564cca84",
+        "rec_9ca91d10ca113b131640"
+      ],
+      "source": "tests/clients/test_cache.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_dae9faf407100e76ef02",
+        "rec_a3e62bfe21a5da4c9266"
+      ],
+      "source": "tests/clients/test_cache.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_82cbe3c989ab686c8a72",
+        "rec_d7258b73498e564cca84"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_8fb5090397fe4e4ec211",
+        "rec_dae9faf407100e76ef02"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_9650f619008b7268e43a",
+        "rec_cf7f491719449a9c9ee9"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 2
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d9f1877e489fe0d46332",
+        "rec_8ef8214158df288d85a9"
+      ],
+      "source": "tests/clients/test_lm.py",
+      "step": 3
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_03ba5ca2fbda9ef94fc5",
+        "rec_82cbe3c989ab686c8a72"
+      ],
+      "source": "tests/predict/test_predict.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_d59193f399c87fc1dae1",
+        "rec_9650f619008b7268e43a"
+      ],
+      "source": "tests/predict/test_predict.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_c957d8b8df23a1380c56",
+        "rec_d59193f399c87fc1dae1"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_aeb6daf2ff736758ac80",
+        "rec_03ba5ca2fbda9ef94fc5"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_afadfa96d343617b9084",
+        "rec_9ca91d10ca113b131640"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 2
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_01338160f7532c3b9b6e",
+        "rec_5fddc576a8e13dfa15ba"
+      ],
+      "source": "tests/primitives/test_python_interpreter.py",
+      "step": 3
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_56dd7e71d289bc118729",
+        "rec_c957d8b8df23a1380c56"
+      ],
+      "source": "tests/reliability/complex_types/generated/test_many_types_1/program.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_56dd7e71d289bc118729",
+        "rec_aeb6daf2ff736758ac80"
+      ],
+      "source": "tests/reliability/complex_types/generated/test_many_types_1/program.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5e0bd964347b8e2229c4",
+        "rec_56dd7e71d289bc118729"
+      ],
+      "source": "tests/reliability/generate/utils.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_5e0bd964347b8e2229c4",
+        "rec_56dd7e71d289bc118729"
+      ],
+      "source": "tests/reliability/generate/utils.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_4d66ac8043dbd88cd521",
+        "rec_5e0bd964347b8e2229c4"
+      ],
+      "source": "tests/streaming/test_streaming.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_4d66ac8043dbd88cd521",
+        "rec_5e0bd964347b8e2229c4"
+      ],
+      "source": "tests/streaming/test_streaming.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_bd2b9a1f3e3178e90d43",
+        "rec_4d66ac8043dbd88cd521"
+      ],
+      "source": "tests/teleprompt/test_ensemble.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_80c34fdaaa0e8cb71722",
+        "rec_4d66ac8043dbd88cd521"
+      ],
+      "source": "tests/teleprompt/test_ensemble.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_874c2d29eec75fbdbc5a",
+        "rec_bd2b9a1f3e3178e90d43"
+      ],
+      "source": "tests/teleprompt/test_knn_fewshot.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_06f680757007ee461189",
+        "rec_80c34fdaaa0e8cb71722"
+      ],
+      "source": "tests/teleprompt/test_knn_fewshot.py",
+      "step": 1
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_bee688cbe33b6d630b97",
+        "rec_874c2d29eec75fbdbc5a"
+      ],
+      "source": "tests/utils/test_parallelizer.py",
+      "step": 0
+    },
+    {
+      "current": 1,
+      "previous": 1,
+      "record_ids": [
+        "rec_f3e137e84bace6db3b90",
+        "rec_06f680757007ee461189"
+      ],
+      "source": "tests/utils/test_parallelizer.py",
+      "step": 1
+    }
+  ],
+  "compute_matched_updates": 120,
+  "control_note": "replay=0 fills all matched slots from the current source",
+  "exposure_by_record": {
+    "rec_01338160f7532c3b9b6e": 1,
+    "rec_03ba5ca2fbda9ef94fc5": 2,
+    "rec_06f680757007ee461189": 2,
+    "rec_12825a48341570daffe0": 2,
+    "rec_239994ec8f1eb2b14052": 4,
+    "rec_2a94cd86cb771d6fa0ea": 4,
+    "rec_339f0a35b42740b84486": 1,
+    "rec_35c5227ba10289b154c4": 2,
+    "rec_381fef3c7ce32f651148": 2,
+    "rec_38d8ae2ce18d3fad6483": 7,
+    "rec_3eba2b34a9f31f8a734a": 2,
+    "rec_4d66ac8043dbd88cd521": 4,
+    "rec_4f1c77f67f3176b136f2": 2,
+    "rec_53cc183dc80b746164ec": 1,
+    "rec_5568453ac71919993373": 2,
+    "rec_56dd7e71d289bc118729": 4,
+    "rec_5d920272caec59e138a8": 2,
+    "rec_5e0bd964347b8e2229c4": 4,
+    "rec_5fddc576a8e13dfa15ba": 5,
+    "rec_63ae5d0bca3cc08e91e5": 2,
+    "rec_69569219c941d9bc1558": 2,
+    "rec_71bd0e5f62fed837e48c": 2,
+    "rec_772503b9044d4a947cbd": 2,
+    "rec_80c34fdaaa0e8cb71722": 2,
+    "rec_82cbe3c989ab686c8a72": 2,
+    "rec_874c2d29eec75fbdbc5a": 2,
+    "rec_8ef8214158df288d85a9": 3,
+    "rec_8fb5090397fe4e4ec211": 1,
+    "rec_9650f619008b7268e43a": 2,
+    "rec_9ca91d10ca113b131640": 3,
+    "rec_a3e62bfe21a5da4c9266": 2,
+    "rec_aeb6daf2ff736758ac80": 2,
+    "rec_afadfa96d343617b9084": 1,
+    "rec_b5192db4a54a391cd8fe": 2,
+    "rec_bd2b9a1f3e3178e90d43": 2,
+    "rec_bee688cbe33b6d630b97": 1,
+    "rec_c20de19bbabf16dd340c": 2,
+    "rec_c21651437cd0087ba3ec": 4,
+    "rec_c957d8b8df23a1380c56": 2,
+    "rec_cb2e3ab7354c1cd2a394": 2,
+    "rec_cf7f491719449a9c9ee9": 3,
+    "rec_d59193f399c87fc1dae1": 2,
+    "rec_d7258b73498e564cca84": 2,
+    "rec_d88986ce897debe7dbb0": 5,
+    "rec_d924001a833b216aacad": 2,
+    "rec_d9f1877e489fe0d46332": 1,
+    "rec_dae9faf407100e76ef02": 2,
+    "rec_dfd0433f31a941cb53c0": 4,
+    "rec_e8de64cbf35a0fee881e": 2,
+    "rec_f3e137e84bace6db3b90": 1
+  },
+  "exposure_by_source": {
+    "docs/docs/api/optimizers/MIPROv2.md": 7,
+    "docs/docs/learn/programming/mcp.md": 5,
+    "docs/docs/learn/programming/signatures.md": 4,
+    "docs/docs/tutorials/llms_txt_generation/index.md": 4,
+    "docs/docs/tutorials/streaming/index.md": 5,
+    "docs/docs/tutorials/yahoo_finance_react/index.md": 4,
+    "dspy/adapters/json_adapter.py": 4,
+    "dspy/dsp/utils/utils.py": 6,
+    "dspy/evaluate/evaluate.py": 5,
+    "dspy/predict/aggregation.py": 4,
+    "dspy/primitives/example.py": 4,
+    "dspy/primitives/module.py": 4,
+    "dspy/propose/utils.py": 5,
+    "dspy/teleprompt/gepa/gepa_utils.py": 4,
+    "dspy/utils/dummies.py": 4,
+    "tests/adapters/test_chat_adapter.py": 4,
+    "tests/adapters/test_tool.py": 5,
+    "tests/clients/test_cache.py": 4,
+    "tests/clients/test_lm.py": 6,
+    "tests/predict/test_predict.py": 4,
+    "tests/primitives/test_python_interpreter.py": 6,
+    "tests/reliability/complex_types/generated/test_many_types_1/program.py": 4,
+    "tests/reliability/generate/utils.py": 4,
+    "tests/streaming/test_streaming.py": 4,
+    "tests/teleprompt/test_ensemble.py": 4,
+    "tests/teleprompt/test_knn_fewshot.py": 4,
+    "tests/utils/test_parallelizer.py": 2
+  },
+  "provenance": {
+    "artifact_schema_version": 1,
+    "artifact_type": "replay_report",
+    "cli_overrides": {
+      "replay": 0.5
+    },
+    "command": "latent-study replay-report",
+    "corpus_hash": "55af7e1e61f774069507505603743e271e11ee6808b6cc10b53c47cbf352fe6e",
+    "model_id": "Qwen/Qwen3.5-9B",
+    "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "repository_commit": "b97f17531035302de83dd6a6a94a92110e7ee786",
+    "resolved_config_hash": "3e7e2ae424912b32b9f78c8fb3a63509e6a7967ee804c550b56bef3087d9958d",
+    "source_tree_hash": "cd08762d5dab8a8fe1484d44584c5e177fe79ea85add5e8ba36b539f42008d80",
+    "tool_schema_hash": "75c3c6a62d9ce650e2f6989c440e8586fdc97d82ba0be82c9caa526b0c89a69e"
+  },
+  "replay_audit": {
+    "current_exposures": {
+      "docs/docs/api/optimizers/MIPROv2.md": 4,
+      "docs/docs/learn/programming/mcp.md": 2,
+      "docs/docs/learn/programming/signatures.md": 2,
+      "docs/docs/tutorials/llms_txt_generation/index.md": 2,
+      "docs/docs/tutorials/streaming/index.md": 2,
+      "docs/docs/tutorials/yahoo_finance_react/index.md": 2,
+      "dspy/adapters/json_adapter.py": 2,
+      "dspy/dsp/utils/utils.py": 4,
+      "dspy/evaluate/evaluate.py": 2,
+      "dspy/predict/aggregation.py": 2,
+      "dspy/primitives/example.py": 2,
+      "dspy/primitives/module.py": 2,
+      "dspy/propose/utils.py": 2,
+      "dspy/teleprompt/gepa/gepa_utils.py": 2,
+      "dspy/utils/dummies.py": 2,
+      "tests/adapters/test_chat_adapter.py": 2,
+      "tests/adapters/test_tool.py": 2,
+      "tests/clients/test_cache.py": 2,
+      "tests/clients/test_lm.py": 4,
+      "tests/predict/test_predict.py": 2,
+      "tests/primitives/test_python_interpreter.py": 4,
+      "tests/reliability/complex_types/generated/test_many_types_1/program.py": 2,
+      "tests/reliability/generate/utils.py": 2,
+      "tests/streaming/test_streaming.py": 2,
+      "tests/teleprompt/test_ensemble.py": 2,
+      "tests/teleprompt/test_knn_fewshot.py": 2,
+      "tests/utils/test_parallelizer.py": 2
+    },
+    "eligible_replay_opportunities": {
+      "docs/docs/api/optimizers/MIPROv2.md": 58,
+      "docs/docs/learn/programming/mcp.md": 56,
+      "docs/docs/learn/programming/signatures.md": 54,
+      "docs/docs/tutorials/llms_txt_generation/index.md": 52,
+      "docs/docs/tutorials/streaming/index.md": 50,
+      "docs/docs/tutorials/yahoo_finance_react/index.md": 48,
+      "dspy/adapters/json_adapter.py": 46,
+      "dspy/dsp/utils/utils.py": 42,
+      "dspy/evaluate/evaluate.py": 40,
+      "dspy/predict/aggregation.py": 38,
+      "dspy/primitives/example.py": 36,
+      "dspy/primitives/module.py": 34,
+      "dspy/propose/utils.py": 32,
+      "dspy/teleprompt/gepa/gepa_utils.py": 30,
+      "dspy/utils/dummies.py": 28,
+      "tests/adapters/test_chat_adapter.py": 26,
+      "tests/adapters/test_tool.py": 24,
+      "tests/clients/test_cache.py": 22,
+      "tests/clients/test_lm.py": 18,
+      "tests/predict/test_predict.py": 16,
+      "tests/primitives/test_python_interpreter.py": 12,
+      "tests/reliability/complex_types/generated/test_many_types_1/program.py": 10,
+      "tests/reliability/generate/utils.py": 8,
+      "tests/streaming/test_streaming.py": 6,
+      "tests/teleprompt/test_ensemble.py": 4,
+      "tests/teleprompt/test_knn_fewshot.py": 2,
+      "tests/utils/test_parallelizer.py": 0
+    },
+    "exposures_per_source": {
+      "docs/docs/api/optimizers/MIPROv2.md": 3,
+      "docs/docs/learn/programming/mcp.md": 3,
+      "docs/docs/learn/programming/signatures.md": 2,
+      "docs/docs/tutorials/llms_txt_generation/index.md": 2,
+      "docs/docs/tutorials/streaming/index.md": 3,
+      "docs/docs/tutorials/yahoo_finance_react/index.md": 2,
+      "dspy/adapters/json_adapter.py": 2,
+      "dspy/dsp/utils/utils.py": 2,
+      "dspy/evaluate/evaluate.py": 3,
+      "dspy/predict/aggregation.py": 2,
+      "dspy/primitives/example.py": 2,
+      "dspy/primitives/module.py": 2,
+      "dspy/propose/utils.py": 3,
+      "dspy/teleprompt/gepa/gepa_utils.py": 2,
+      "dspy/utils/dummies.py": 2,
+      "tests/adapters/test_chat_adapter.py": 2,
+      "tests/adapters/test_tool.py": 3,
+      "tests/clients/test_cache.py": 2,
+      "tests/clients/test_lm.py": 2,
+      "tests/predict/test_predict.py": 2,
+      "tests/primitives/test_python_interpreter.py": 2,
+      "tests/reliability/complex_types/generated/test_many_types_1/program.py": 2,
+      "tests/reliability/generate/utils.py": 2,
+      "tests/streaming/test_streaming.py": 2,
+      "tests/teleprompt/test_ensemble.py": 2,
+      "tests/teleprompt/test_knn_fewshot.py": 2,
+      "tests/utils/test_parallelizer.py": 0
+    },
+    "imbalance": {
+      "max": 3,
+      "max_to_min_ratio": null,
+      "mean": 2.1481481481481484,
+      "min": 0,
+      "population_stdev": 0.5902732389077492,
+      "range": 3,
+      "sources": 27
+    },
+    "no_opportunity_reason": "source was never a previous source before the sequential study ended",
+    "no_replay_opportunity_reasons": {
+      "tests/utils/test_parallelizer.py": "source was never a previous source before the sequential study ended"
+    },
+    "no_replay_opportunity_sources": [
+      "tests/utils/test_parallelizer.py"
+    ],
+    "previous_exposures": {
+      "docs/docs/api/optimizers/MIPROv2.md": 3,
+      "docs/docs/learn/programming/mcp.md": 3,
+      "docs/docs/learn/programming/signatures.md": 2,
+      "docs/docs/tutorials/llms_txt_generation/index.md": 2,
+      "docs/docs/tutorials/streaming/index.md": 3,
+      "docs/docs/tutorials/yahoo_finance_react/index.md": 2,
+      "dspy/adapters/json_adapter.py": 2,
+      "dspy/dsp/utils/utils.py": 2,
+      "dspy/evaluate/evaluate.py": 3,
+      "dspy/predict/aggregation.py": 2,
+      "dspy/primitives/example.py": 2,
+      "dspy/primitives/module.py": 2,
+      "dspy/propose/utils.py": 3,
+      "dspy/teleprompt/gepa/gepa_utils.py": 2,
+      "dspy/utils/dummies.py": 2,
+      "tests/adapters/test_chat_adapter.py": 2,
+      "tests/adapters/test_tool.py": 3,
+      "tests/clients/test_cache.py": 2,
+      "tests/clients/test_lm.py": 2,
+      "tests/predict/test_predict.py": 2,
+      "tests/primitives/test_python_interpreter.py": 2,
+      "tests/reliability/complex_types/generated/test_many_types_1/program.py": 2,
+      "tests/reliability/generate/utils.py": 2,
+      "tests/streaming/test_streaming.py": 2,
+      "tests/teleprompt/test_ensemble.py": 2,
+      "tests/teleprompt/test_knn_fewshot.py": 2,
+      "tests/utils/test_parallelizer.py": 0
+    },
+    "scheduler": "deterministic_least_exposed_among_currently_eligible_sources",
+    "zero_exposure_eligible_sources": []
+  },
+  "replay_exposure_by_source": {
+    "docs/docs/api/optimizers/MIPROv2.md": 3,
+    "docs/docs/learn/programming/mcp.md": 3,
+    "docs/docs/learn/programming/signatures.md": 2,
+    "docs/docs/tutorials/llms_txt_generation/index.md": 2,
+    "docs/docs/tutorials/streaming/index.md": 3,
+    "docs/docs/tutorials/yahoo_finance_react/index.md": 2,
+    "dspy/adapters/json_adapter.py": 2,
+    "dspy/dsp/utils/utils.py": 2,
+    "dspy/evaluate/evaluate.py": 3,
+    "dspy/predict/aggregation.py": 2,
+    "dspy/primitives/example.py": 2,
+    "dspy/primitives/module.py": 2,
+    "dspy/propose/utils.py": 3,
+    "dspy/teleprompt/gepa/gepa_utils.py": 2,
+    "dspy/utils/dummies.py": 2,
+    "tests/adapters/test_chat_adapter.py": 2,
+    "tests/adapters/test_tool.py": 3,
+    "tests/clients/test_cache.py": 2,
+    "tests/clients/test_lm.py": 2,
+    "tests/predict/test_predict.py": 2,
+    "tests/primitives/test_python_interpreter.py": 2,
+    "tests/reliability/complex_types/generated/test_many_types_1/program.py": 2,
+    "tests/reliability/generate/utils.py": 2,
+    "tests/streaming/test_streaming.py": 2,
+    "tests/teleprompt/test_ensemble.py": 2,
+    "tests/teleprompt/test_knn_fewshot.py": 2
+  },
+  "replay_fraction": 0.5,
+  "replay_source_imbalance": {
+    "max": 3,
+    "max_to_min_ratio": null,
+    "mean": 2.1481481481481484,
+    "min": 0,
+    "population_stdev": 0.5902732389077492,
+    "range": 3,
+    "sources": 27
+  },
+  "source_exposure_imbalance": {
+    "max": 7,
+    "max_to_min_ratio": 3.5,
+    "mean": 4.444444444444445,
+    "min": 2,
+    "population_stdev": 0.9558139185602919,
+    "range": 5,
+    "sources": 27
+  }
+}

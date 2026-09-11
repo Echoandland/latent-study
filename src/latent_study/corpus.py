@@ -160,6 +160,64 @@ def _declaration_line_span(node: ast.AST, lines: list[str]) -> dict:
     return {"start_line": start, "end_line": end, "text": text, "text_hash": sha256_text(text)}
 
 
+def _target_names(node: ast.AST) -> set[str]:
+    return {item.id for item in ast.walk(node) if isinstance(item, ast.Name)
+            and isinstance(item.ctx, (ast.Store, ast.Del))}
+
+
+def _scope_bindings(scope: ast.AST) -> tuple[set[str], set[str], set[str], set[str], set[str]]:
+    """Return local, global and nonlocal names for one lexical function scope.
+
+    Nested bodies are not traversed; their declaration names still bind in the
+    enclosing scope.  Comprehension targets are conservatively treated as
+    shadowing for calls inside the containing function.
+    """
+    local: set[str] = set()
+    global_names: set[str] = set()
+    nonlocal_names: set[str] = set()
+    assigned: set[str] = set()
+    args = getattr(scope, "args", None)
+    if args is not None:
+        local.update(a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs))
+        if args.vararg: local.add(args.vararg.arg)
+        if args.kwarg: local.add(args.kwarg.arg)
+
+    def visit(node: ast.AST) -> None:
+        if node is not scope and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            local.add(node.name); assigned.add(node.name)
+            return
+        if isinstance(node, ast.Lambda) and node is not scope:
+            return
+        if isinstance(node, ast.Global): global_names.update(node.names)
+        elif isinstance(node, ast.Nonlocal): nonlocal_names.update(node.names)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = (node.targets if isinstance(node, ast.Assign) else
+                       [node.target] if hasattr(node, "target") else [])
+            for target in targets:
+                names = _target_names(target); local.update(names); assigned.update(names)
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            names = _target_names(node.target); local.update(names); assigned.update(names)
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if item.optional_vars:
+                    names = _target_names(item.optional_vars); local.update(names); assigned.update(names)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            name = node.name if isinstance(node.name, str) else node.name.id
+            local.add(name); assigned.add(name)
+        elif isinstance(node, (ast.comprehension,)):
+            names = _target_names(node.target); local.update(names); assigned.update(names)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                name = alias.asname or alias.name.split(".")[0]
+                local.add(name); assigned.add(name)
+        for child in ast.iter_child_nodes(node): visit(child)
+
+    for child in ast.iter_child_nodes(scope): visit(child)
+    rebound_globals = local & global_names
+    local.difference_update(global_names)
+    return local, global_names, nonlocal_names, rebound_globals, assigned
+
+
 def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list[dict], dict]:
     """Resolve only call edges justified by explicit lexical/import bindings."""
     python_units = [u for u in units if u.source_path.endswith(".py")]
@@ -190,24 +248,38 @@ def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list
                             definitions.setdefault((path, f"{node.name}.{child.name}"), []).append((child, container))
 
     accepted: list[dict] = []
-    counts = {"syntactic": 0, "uniquely_verified": 0, "ambiguous": 0, "excluded": 0}
+    counts = {"syntactic": 0, "uniquely_verified": 0, "ambiguous": 0,
+              "shadowed": 0, "excluded": 0}
     excluded_by_reason: dict[str, int] = {}
 
-    def exclude(reason: str, ambiguous: bool = False) -> None:
-        counts["ambiguous" if ambiguous else "excluded"] += 1
+    def exclude(reason: str, ambiguous: bool = False, shadowed: bool = False) -> None:
+        counts["shadowed" if shadowed else "ambiguous" if ambiguous else "excluded"] += 1
         excluded_by_reason[reason] = excluded_by_reason.get(reason, 0) + 1
 
     for path, (tree, lines) in parsed.items():
-        import_symbols: dict[str, tuple[str, str]] = {}
-        import_modules: dict[str, str] = {}
+        import_symbols: dict[str, list[tuple[str, str]]] = {}
+        import_modules: dict[str, list[str]] = {}
+        module_binding_counts: dict[str, int] = {}
+        def module_bind(name: str) -> None:
+            module_binding_counts[name] = module_binding_counts.get(name, 0) + 1
         for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                module_bind(node.name)
             if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 for alias in node.names:
                     if alias.name != "*":
-                        import_symbols[alias.asname or alias.name] = (node.module, alias.name)
+                        local_name = alias.asname or alias.name
+                        import_symbols.setdefault(local_name, []).append((node.module, alias.name))
+                        module_bind(local_name)
             elif isinstance(node, ast.Import):
                 for alias in node.names:
-                    import_modules[alias.asname or alias.name.split(".")[0]] = alias.name
+                    local_name = alias.asname or alias.name.split(".")[0]
+                    import_modules.setdefault(local_name, []).append(alias.name)
+                    module_bind(local_name)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target_node in targets:
+                    for name in _target_names(target_node): module_bind(name)
 
         parents: dict[ast.AST, ast.AST] = {}
         for node in ast.walk(tree):
@@ -232,12 +304,35 @@ def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list
             rule = ""
             binding: dict = {}
             func = call.func
+            lexical_scope = owner if isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
+            local_names, global_names, nonlocal_names, rebound_globals, assigned_names = (
+                _scope_bindings(lexical_scope) if lexical_scope is not None
+                else (set(), set(), set(), set(), set()))
             if isinstance(func, ast.Name):
+                if func.id in nonlocal_names:
+                    exclude("nonlocal_callable_binding", shadowed=True)
+                    continue
+                if func.id in local_names and func.id not in global_names:
+                    exclude("lexically_shadowed_name_call", shadowed=True)
+                    continue
+                if func.id in rebound_globals:
+                    exclude("rebound_global_callable", shadowed=True)
+                    continue
                 local = definitions.get((path, func.id), [])
                 if len(local) == 1:
+                    if module_binding_counts.get(func.id, 0) != 1:
+                        exclude("ambiguous_module_binding", ambiguous=True)
+                        continue
                     target, rule = local[0], "direct_local_function"
+                elif len(local) > 1:
+                    exclude("duplicate_local_definition", ambiguous=True)
+                    continue
                 elif func.id in import_symbols:
-                    module, symbol = import_symbols[func.id]
+                    bindings = import_symbols[func.id]
+                    if len(bindings) != 1:
+                        exclude("duplicate_import_binding", ambiguous=True)
+                        continue
+                    module, symbol = bindings[0]
                     paths = module_paths.get(module, [])
                     candidates = [item for p in paths for item in definitions.get((p, symbol), [])]
                     if len(candidates) == 1:
@@ -251,6 +346,16 @@ def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list
                     continue
             elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
                 base = func.value.id
+                if base in {"self", "cls"} and base in assigned_names:
+                    exclude("reassigned_self_or_cls", shadowed=True)
+                    continue
+                if base in rebound_globals:
+                    exclude("rebound_global_receiver", shadowed=True)
+                    continue
+                if base in nonlocal_names or (base in local_names and base not in {"self", "cls"}
+                                              and base not in global_names):
+                    exclude("lexically_shadowed_receiver", shadowed=True)
+                    continue
                 if base in {"self", "cls"}:
                     cls = owner
                     while cls in parents and not isinstance(cls, ast.ClassDef):
@@ -262,7 +367,11 @@ def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list
                         exclude("ambiguous_or_missing_class_method", ambiguous=len(candidates) > 1)
                         continue
                 elif base in import_modules:
-                    module = import_modules[base]
+                    modules = import_modules[base]
+                    if len(modules) != 1:
+                        exclude("duplicate_module_import_binding", ambiguous=True)
+                        continue
+                    module = modules[0]
                     paths = module_paths.get(module, [])
                     candidates = [item for p in paths for item in definitions.get((p, func.attr), [])]
                     if len(candidates) == 1:

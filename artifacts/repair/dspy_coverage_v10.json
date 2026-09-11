@@ -1,0 +1,154 @@
+{
+  "atomic_evidence_exposeability": {
+    "exposeable": 50,
+    "fraction": 1.0,
+    "records": 50
+  },
+  "document_file_coverage": {
+    "covered": 29,
+    "eligible": 366,
+    "fraction": 0.07923497267759563
+  },
+  "eligible_token_evidence_coverage": {
+    "covered": 13570,
+    "eligible": 513596,
+    "fraction": 0.026421545339138156
+  },
+  "evidence_group_count_distribution": {
+    "1": 40,
+    "2": 10
+  },
+  "excluded_reasons": {
+    "not_selected_or_no_strong_structural_label": 2540
+  },
+  "excluded_units": 2540,
+  "provenance": {
+    "artifact_schema_version": 1,
+    "artifact_type": "study_bank_audit",
+    "cli_overrides": {
+      "actions": 4,
+      "candidate_device": "cuda:0",
+      "candidate_dtype": "bfloat16",
+      "candidate_model": "data/models/Qwen3.5-9B",
+      "candidate_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "deterministic_smoke": false,
+      "evaluation_root": "data/evaluation",
+      "family_limit": 15,
+      "limit": 25,
+      "local_files_only": true,
+      "num_workers": 1,
+      "relation_limit": 10,
+      "seed": 17,
+      "shuffle_correspondence": false
+    },
+    "command": "latent-study generate-records",
+    "corpus_hash": "55af7e1e61f774069507505603743e271e11ee6808b6cc10b53c47cbf352fe6e",
+    "model_id": "Qwen/Qwen3.5-9B",
+    "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "repository_commit": "b97f17531035302de83dd6a6a94a92110e7ee786",
+    "resolved_config_hash": "b6409c40368afe762667a1c6ae798c9f38dc0d7e0885f686c6c41eb904b8bd01",
+    "source_tree_hash": "cd08762d5dab8a8fe1484d44584c5e177fe79ea85add5e8ba36b539f42008d80",
+    "tool_schema_hash": "75c3c6a62d9ce650e2f6989c440e8586fdc97d82ba0be82c9caa526b0c89a69e"
+  },
+  "relation_audit": {
+    "ambiguous": 90,
+    "excluded": 9272,
+    "excluded_by_reason": {
+      "ambiguous_or_missing_class_method": 136,
+      "ambiguous_or_missing_from_import_target": 1618,
+      "ambiguous_or_missing_module_attribute": 2209,
+      "call_outside_semantic_definition": 161,
+      "caller_not_indexed": 98,
+      "duplicate_import_binding": 22,
+      "duplicate_module_import_binding": 58,
+      "dynamic_or_nested_callable": 1505,
+      "lexically_shadowed_name_call": 697,
+      "lexically_shadowed_receiver": 2255,
+      "reassigned_self_or_cls": 1,
+      "unresolved_name_call": 3032,
+      "unresolved_receiver_call": 523
+    },
+    "shadowed": 2953,
+    "syntactic": 14048,
+    "uniquely_verified": 1733
+  },
+  "resolved_config_hash": "b6409c40368afe762667a1c6ae798c9f38dc0d7e0885f686c6c41eb904b8bd01",
+  "semantic_unit_coverage": {
+    "covered": 31,
+    "eligible": 2571,
+    "fraction": 0.012057565149747181
+  },
+  "source_record_counts": {
+    "docs/docs/api/optimizers/MIPROv2.md": 1,
+    "docs/docs/learn/programming/mcp.md": 1,
+    "docs/docs/learn/programming/signatures.md": 1,
+    "docs/docs/tutorials/llms_txt_generation/index.md": 1,
+    "docs/docs/tutorials/streaming/index.md": 1,
+    "docs/docs/tutorials/yahoo_finance_react/index.md": 2,
+    "dspy/adapters/json_adapter.py": 2,
+    "dspy/dsp/utils/utils.py": 4,
+    "dspy/evaluate/evaluate.py": 2,
+    "dspy/predict/aggregation.py": 2,
+    "dspy/primitives/example.py": 1,
+    "dspy/primitives/module.py": 2,
+    "dspy/propose/utils.py": 2,
+    "dspy/teleprompt/gepa/gepa_utils.py": 1,
+    "dspy/utils/dummies.py": 2,
+    "tests/adapters/test_chat_adapter.py": 2,
+    "tests/adapters/test_tool.py": 2,
+    "tests/clients/test_cache.py": 2,
+    "tests/clients/test_lm.py": 4,
+    "tests/predict/test_predict.py": 2,
+    "tests/primitives/test_python_interpreter.py": 4,
+    "tests/reliability/complex_types/generated/test_many_types_1/program.py": 1,
+    "tests/reliability/generate/utils.py": 1,
+    "tests/streaming/test_streaming.py": 1,
+    "tests/teleprompt/test_ensemble.py": 2,
+    "tests/teleprompt/test_knn_fewshot.py": 2,
+    "tests/utils/test_parallelizer.py": 2
+  },
+  "study_bank_audit": {
+    "candidate_actions": 200,
+    "elapsed_seconds": 193.48453803360462,
+    "exact_evidence_hit_rate": 0.305,
+    "generation_compute": {
+      "input_tokens": 74920,
+      "latency_seconds": 182.23073339648545,
+      "model_calls": 50,
+      "output_tokens": 12596
+    },
+    "global_unique_action_rate": 0.77,
+    "peak_rss_kib": 18494856,
+    "preference_pair_rate": 0.86,
+    "records": 50,
+    "required_group_coverage": 0.3475,
+    "valid_action_rate": 0.75,
+    "within_record_unique_action_rate": 0.845
+  },
+  "symbol_coverage": {
+    "covered": 114,
+    "eligible": 2882,
+    "fraction": 0.0395558639833449
+  },
+  "task_family_counts": {
+    "comprehension": 25,
+    "evidence_interpretation": 2,
+    "misconception_correction": 13,
+    "navigation": 5,
+    "relation_induction": 5
+  },
+  "units_seen_only_as_negatives": 0,
+  "units_supervised_as_positive_evidence": 31,
+  "validator_counts": {
+    "ast_assignment_or_import": 2,
+    "atomic_structural_definition": 25,
+    "single_verified_name_substitution": 13,
+    "uniquely_resolved_ast_call": 10
+  },
+  "verified_relation_coverage": {
+    "covered": 5,
+    "eligible": 1733,
+    "fraction": 0.0028851702250432777
+  },
+  "warning": "Appearance is not evidence of learning; these are exposure/coverage measurements only."
+}

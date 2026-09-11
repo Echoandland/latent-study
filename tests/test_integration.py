@@ -27,7 +27,7 @@ def test_small_coverage_replay_integration(tmp_path):
     assert len(matched.records) == 4 and matched.current_count == 4
 
 
-def test_batch_two_replay_round_robins_over_every_previous_source(tmp_path):
+def test_batch_two_replay_balances_the_real_dynamically_growing_bank(tmp_path):
     corpus = tmp_path / "many"; corpus.mkdir()
     for index in range(7):
         (corpus / f"s{index}.py").write_text(f"def unique_{index}():\n    return {index}\n")
@@ -38,13 +38,13 @@ def test_batch_two_replay_round_robins_over_every_previous_source(tmp_path):
         grouped.setdefault(record.source_id, []).append(record)
     replay = SourceReplay(seed=19, replay_fraction=.5)
     sources = sorted(grouped)
-    for source in sources:
+    for step, source in enumerate(sources):
         replay.add_source(source, grouped[source])
-    current, previous = sources[-1], sources[:-1]
-    for step in range(len(previous) * 2):
-        batch = replay.batch(current, batch_size=2, step=step)
-        assert (batch.current_count, batch.previous_count) == (1, 1)
-    counts = {source: replay.previous_ledger.by_source.get(source, 0) for source in previous}
-    assert set(counts.values()) == {2}
-    assert replay.source_imbalance(previous, kind="previous")["range"] == 0
-    assert counts[previous[0]] < sum(counts.values())
+        batch = replay.batch(source, batch_size=2, step=step)
+        assert (batch.current_count, batch.previous_count) == ((2, 0) if step == 0 else (1, 1))
+    audit = replay.replay_audit()
+    counts = {source: replay.previous_ledger.by_source.get(source, 0) for source in sources[:-1]}
+    assert set(counts.values()) == {1}
+    assert audit["zero_exposure_eligible_sources"] == []
+    assert audit["no_replay_opportunity_sources"] == [sources[-1]]
+    assert audit["imbalance"]["population_stdev"] > 0  # includes the justified late-source zero

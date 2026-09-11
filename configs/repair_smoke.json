@@ -4,11 +4,12 @@
   "model": {"id": "Qwen/Qwen3.5-9B", "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a", "frozen": true, "dtype": "bfloat16"},
   "corpus": {"authorized_roots": ["data/corpus/dspy"], "revision": "9cdb0aac28b2a04b064e40697ccd301872cf6a43"},
   "latent": {"length": 3, "init_std": 0.02},
-  "candidate_generation": {"n": 4, "source": "frozen_base_without_latent"},
-  "tools": {"interface": "pinned_local_coding_tools_v2", "max_results": 5, "max_bytes_per_hit": 1600, "max_total_bytes": 6000, "grep_context_lines": 4},
-  "objective": {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0, "query_weight": 1.0, "ranking_weight": 1.0},
+  "candidate_generation": {"n": 4, "source": "frozen_base_without_latent", "do_sample": true, "temperature": 0.8, "top_p": 0.95, "max_new_tokens": 96},
+  "tools": {"interface": "pinned_local_coding_tools_v2", "max_results": 5, "max_bytes_per_hit": 1600, "max_total_bytes": 6000, "grep_context_lines": 4, "max_query_chars": 256},
+  "objective": {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0, "query_weight": 1.0, "ranking_weight": 1.0, "gradient_balance": "rms_norm_sum"},
   "replay": {"fraction": 0.5, "source_stratified": true, "keep_full_bank": true},
-  "training": {"learning_rate": 0.001, "steps_per_source": 1, "batch_size": 2, "gradient_accumulation_steps": 1},
+  "training": {"optimizer": "AdamW", "learning_rate": 0.001, "weight_decay": 0.01, "steps_per_source": 1, "batch_size": 2, "gradient_accumulation_steps": 1},
+  "peek": {"max_new_tokens": 384, "retries": 2},
   "decoding": {"do_sample": false, "temperature": 0.0, "max_new_tokens_per_turn": 64},
   "root_agent": {"prompt_revision": "local-coding-agent-v2", "max_tool_calls": 2, "max_output_tokens": 64, "max_observation_bytes": 2000}
 }

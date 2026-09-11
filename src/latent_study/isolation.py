@@ -27,6 +27,10 @@ def enforce_study_inputs(
 
 def assert_frozen_artifact(path: str | Path) -> dict:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    return assert_frozen_payload(payload)
+
+
+def assert_frozen_payload(payload: dict) -> dict:
     if payload.get("phase") != "frozen_before_evaluation":
         raise IsolationError("evaluation requires a pre-frozen study artifact")
     if payload.get("evaluation_inputs_seen"):

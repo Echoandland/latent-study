@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass
 
 from .schema import ToolAction
@@ -42,12 +43,26 @@ ROOT_SYSTEM_PROMPT = (
     + " Return a final answer as JSON {\"final\":\"...\"}. Evidence must be visible in tool output."
 )
 
+MEMORY_SLOT_OPEN = "\n\n<corpus_memory>\n"
+MEMORY_SLOT_CLOSE = "\n</corpus_memory>"
 
-def study_state_messages(record, *, memory_text: str = "") -> list[dict[str, str]]:
-    system = ROOT_SYSTEM_PROMPT
-    if memory_text:
-        system += "\n\nFrozen corpus memory map:\n" + memory_text
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": record.prompt}]
+
+@dataclass(frozen=True)
+class SerializedChat:
+    """Role-delimited tokens with one explicit corpus-memory slot.
+
+    ``memory_start`` and ``memory_end`` delimit textual map tokens.  A soft
+    memory is spliced at ``memory_start`` while the textual interval is empty,
+    so both interventions occupy the same logical prompt position.
+    """
+    input_ids: object
+    memory_start: int
+    memory_end: int
+
+
+def study_state_messages(record) -> list[dict[str, str]]:
+    messages = [{"role": "system", "content": ROOT_SYSTEM_PROMPT},
+                {"role": "user", "content": record.prompt}]
     if record.observation:
         action = record.observation_action or ToolAction(tool="grep", query="prior evidence")
         messages.append({"role": "assistant", "content": json.dumps(action.to_payload(), sort_keys=True)})
@@ -62,25 +77,47 @@ def ranking_state_messages(record, candidate_text: str, relevant_label: str, irr
     return messages
 
 
-def serialize_chat_ids(tokenizer, messages, *, add_generation_prompt: bool = True):
-    """Prefix-stable Qwen role serialization; falls back to the tokenizer template."""
-    im_start = tokenizer.convert_tokens_to_ids("<|im_start|>") if hasattr(tokenizer, "convert_tokens_to_ids") else None
-    unk = getattr(tokenizer, "unk_token_id", None)
-    if im_start is None or im_start == unk:
-        ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=add_generation_prompt,
-                                            return_tensors="pt")
-        return ids["input_ids"] if hasattr(ids, "keys") else ids
-    pieces = []
-    for message in messages:
+def _tokenize_piece(tokenizer, text: str):
+    value = tokenizer(text, add_special_tokens=False, return_tensors="pt")
+    return value["input_ids"] if hasattr(value, "keys") else value.input_ids
+
+
+def serialize_chat(tokenizer, messages, *, memory_text: str = "",
+                   add_generation_prompt: bool = True) -> SerializedChat:
+    """Serialize Qwen roles and expose the sole memory-slot token boundary."""
+    import torch
+    if not messages or messages[0].get("role") != "system":
+        raise ValueError("a complete conversation must start with a system role")
+    system = messages[0]["content"]
+    pieces = [f"<|im_start|>system\n{system}{MEMORY_SLOT_OPEN}"]
+    before = _tokenize_piece(tokenizer, pieces[0])
+    memory = _tokenize_piece(tokenizer, memory_text) if memory_text else before[:, :0]
+    pieces_after = [MEMORY_SLOT_CLOSE + "<|im_end|>\n"]
+    for message in messages[1:]:
         role, content = message["role"], message["content"]
+        if role == "system":
+            raise ValueError("system role may occur only before the memory slot")
         if role == "tool":
-            pieces.append(f"<|im_start|>user\n<tool_response>\n{content}\n</tool_response><|im_end|>\n")
+            pieces_after.append(f"<|im_start|>user\n<tool_response>\n{content}\n</tool_response><|im_end|>\n")
         elif role == "assistant":
-            pieces.append(f"<|im_start|>assistant\n<think>\n\n</think>\n\n{content}<|im_end|>\n")
+            pieces_after.append(f"<|im_start|>assistant\n<think>\n\n</think>\n\n{content}<|im_end|>\n")
         else:
-            pieces.append(f"<|im_start|>{role}\n{content}<|im_end|>\n")
-    if add_generation_prompt: pieces.append("<|im_start|>assistant\n<think>\n\n</think>\n\n")
-    return tokenizer("".join(pieces), add_special_tokens=False, return_tensors="pt").input_ids
+            pieces_after.append(f"<|im_start|>{role}\n{content}<|im_end|>\n")
+    if add_generation_prompt:
+        pieces_after.append("<|im_start|>assistant\n<think>\n\n</think>\n\n")
+    after = _tokenize_piece(tokenizer, "".join(pieces_after))
+    ids = torch.cat((before, memory, after), dim=1)
+    return SerializedChat(ids, int(before.shape[1]), int(before.shape[1] + memory.shape[1]))
+
+
+def serialize_chat_ids(tokenizer, messages, *, memory_text: str = "",
+                       add_generation_prompt: bool = True):
+    serialized = serialize_chat(tokenizer, messages, memory_text=memory_text,
+                                add_generation_prompt=add_generation_prompt)
+    # Preserve the boundary for SoftPrefixLM without changing the public tensor API.
+    serialized.input_ids._memory_slot_start = serialized.memory_start
+    serialized.input_ids._memory_slot_end = serialized.memory_end
+    return serialized.input_ids
 
 
 def tool_continuation_ids(tokenizer, generated_ids, observation: str):
@@ -112,6 +149,7 @@ class Condition:
     tool_schema_hash: str = TOOL_SCHEMA_HASH
     decoding: dict | None = None
     root_prompt_revision: str = ROOT_PROMPT_REVISION
+    allow_full_recompute_fallback: bool = False
 
 
 def assert_fair_conditions(conditions: list[Condition]) -> None:
@@ -153,15 +191,26 @@ class FrozenRootAgent:
             raise ValueError("latent condition requires prefix_lm")
         if condition.memory_kind == "map" and not map_text:
             raise ValueError("map condition requires frozen map_text")
+        if (getattr(model.config, "model_type", "").startswith("qwen3_5")
+                and not condition.allow_full_recompute_fallback):
+            raise RuntimeError("Qwen cached continuation is unverified; pass explicit full-recompute acknowledgement")
 
     def _ids(self, messages):
-        return serialize_chat_ids(self.tokenizer, messages, add_generation_prompt=True).to(self.model.device)
+        return serialize_chat_ids(self.tokenizer, messages, memory_text=self.map_text,
+                                  add_generation_prompt=True).to(self.model.device)
 
     def run(self, question: str) -> dict:
         import torch
-        system = ROOT_SYSTEM_PROMPT + (("\n\nFrozen corpus memory map:\n" + self.map_text)
-                                      if self.condition.memory_kind == "map" else "")
-        messages = [{"role": "system", "content": system}, {"role": "user", "content": question}]
+        started = time.perf_counter()
+        decoding = self.condition.decoding or {}
+        do_sample = bool(decoding.get("do_sample", False))
+        temperature = float(decoding.get("temperature", 0.0))
+        if do_sample and temperature <= 0:
+            raise ValueError("sampled root decoding requires positive temperature")
+        generator = torch.Generator(device=self.model.device)
+        generator.manual_seed(int(decoding.get("seed", 0)))
+        messages = [{"role": "system", "content": ROOT_SYSTEM_PROMPT},
+                    {"role": "user", "content": question}]
         tool_calls, output_tokens, observation_bytes, invalid = 0, 0, 0, 0
         transcript = list(messages); cached_ids = None; session = None
         if self.prefix_lm is not None:
@@ -174,7 +223,8 @@ class FrozenRootAgent:
                             self.condition.budget.max_output_tokens - output_tokens)
             if session is not None:
                 generated, session.state = self.prefix_lm.generate_from_state(session.state,
-                                                                               max_new_tokens=allowance)
+                    max_new_tokens=allowance, temperature=temperature if do_sample else 0.0,
+                    generator=generator)
             else:
                 ids = cached_ids if cached_ids is not None else self._ids(messages)
                 if cached_ids is not None:
@@ -184,14 +234,22 @@ class FrozenRootAgent:
                         for _ in range(allowance):
                             logits = self.model(input_ids=history, use_cache=False, return_dict=True,
                                                 logits_to_keep=1).logits[:, -1, :]
-                            token = logits.argmax(dim=-1, keepdim=True); pieces.append(token)
+                            if do_sample:
+                                probs = torch.softmax(logits.float() / temperature, dim=-1)
+                                token = torch.multinomial(probs, 1, generator=generator)
+                            else:
+                                token = logits.argmax(dim=-1, keepdim=True)
+                            pieces.append(token)
                             history = torch.cat((history, token), dim=1)
                             if self.tokenizer.eos_token_id is not None and int(token.item()) == self.tokenizer.eos_token_id: break
                     generated = torch.cat(pieces, dim=1)
                 else:
                     with torch.inference_mode():
-                        full = self.model.generate(ids, max_new_tokens=allowance, do_sample=False,
-                                                   pad_token_id=self.tokenizer.eos_token_id)
+                        generation = {"max_new_tokens": allowance, "do_sample": do_sample,
+                                      "pad_token_id": self.tokenizer.eos_token_id}
+                        if do_sample:
+                            generation.update({"temperature": temperature, "generator": generator})
+                        full = self.model.generate(ids, **generation)
                     generated = full[:, ids.shape[1]:]
             output_tokens += int(generated.shape[1])
             text = self.tokenizer.decode(generated[0], skip_special_tokens=True)
@@ -203,12 +261,12 @@ class FrozenRootAgent:
                 final = None
             if final is not None:
                 return self._result(str(final), transcript, tool_calls, output_tokens,
-                                    observation_bytes, invalid, session)
+                                    observation_bytes, invalid, session, time.perf_counter() - started)
             actions = parse_tool_actions(text)
             if not actions or tool_calls >= self.condition.budget.max_tool_calls:
                 invalid += int(not actions)
                 return self._result(text, transcript, tool_calls, output_tokens,
-                                    observation_bytes, invalid, session)
+                                    observation_bytes, invalid, session, time.perf_counter() - started)
             action = actions[0]; valid, _, observation = self.tools.execute(action)
             if not valid: invalid += 1
             remaining = self.condition.budget.max_observation_bytes - observation_bytes
@@ -226,11 +284,18 @@ class FrozenRootAgent:
                 suffix = tool_continuation_ids(self.tokenizer, generated,
                                                serialize_tool_observation(action, observation)).to(self.model.device)
                 cached_ids = torch.cat((cached_ids, generated, suffix), dim=1)
-        return self._result("", transcript, tool_calls, output_tokens, observation_bytes, invalid, session)
+        return self._result("", transcript, tool_calls, output_tokens, observation_bytes, invalid,
+                            session, time.perf_counter() - started)
 
     @staticmethod
-    def _result(answer, transcript, calls, output_tokens, observation_bytes, invalid, session):
+    def _result(answer, transcript, calls, output_tokens, observation_bytes, invalid, session,
+                elapsed_seconds):
+        mode = session.state.cache_mode if session is not None else "full_recompute_fallback"
         return {"answer": answer, "transcript": transcript, "tool_calls": calls,
                 "model_output_tokens": output_tokens, "returned_observation_bytes": observation_bytes,
                 "invalid_actions": invalid,
-                "prefix_insertions": session.state.prefix_insertions if session is not None else 0}
+                "prefix_insertions": session.state.prefix_insertions if session is not None else 0,
+                "continuation_mode": mode, "cache_correctness_claimed": mode == "native",
+                "inference_latency_seconds": elapsed_seconds,
+                "fallback_scaling": ("full conversation recomputed for each generated token"
+                                     if mode == "full_recompute_fallback" else None)}

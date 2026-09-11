@@ -1,0 +1,32 @@
+{
+  "artifact_schema_version": 1,
+  "artifact_type": "study_record_bank",
+  "cli_overrides": {
+    "actions": 4,
+    "candidate_device": "cuda:0",
+    "candidate_dtype": "bfloat16",
+    "candidate_model": "data/models/Qwen3.5-9B",
+    "candidate_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "deterministic_smoke": false,
+    "evaluation_root": "data/evaluation",
+    "family_limit": 15,
+    "limit": 25,
+    "local_files_only": true,
+    "num_workers": 1,
+    "relation_limit": 10,
+    "seed": 17,
+    "shuffle_correspondence": false
+  },
+  "command": "latent-study generate-records",
+  "corpus_hash": "55af7e1e61f774069507505603743e271e11ee6808b6cc10b53c47cbf352fe6e",
+  "model_id": "Qwen/Qwen3.5-9B",
+  "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "repository_commit": "b97f17531035302de83dd6a6a94a92110e7ee786",
+  "resolved_config_hash": "b6409c40368afe762667a1c6ae798c9f38dc0d7e0885f686c6c41eb904b8bd01",
+  "shard": {
+    "num_workers": 1,
+    "worker_index": 0
+  },
+  "source_tree_hash": "cd08762d5dab8a8fe1484d44584c5e177fe79ea85add5e8ba36b539f42008d80",
+  "tool_schema_hash": "75c3c6a62d9ce650e2f6989c440e8586fdc97d82ba0be82c9caa526b0c89a69e"
+}

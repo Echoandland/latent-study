@@ -1,0 +1,109 @@
+{
+  "artifact_schema_version": 1,
+  "client_statistics": {
+    "cartographer": {
+      "calls": 2,
+      "failures": 0,
+      "malformed": 0,
+      "retries": 0
+    },
+    "distiller": {
+      "calls": 3,
+      "failures": 1,
+      "malformed": 3,
+      "retries": 2
+    },
+    "failed_outputs": 1,
+    "failure_rate_per_update": 0.25,
+    "input_tokens": 22721,
+    "latency_seconds": 97.20117203518748,
+    "malformed_examples": [
+      " corpus as an unstructured blob rather than a navigable codebase with a known structure.\",\n  \"item_tags\": {\n    \"ep-00002\": \"helpful\"\n  },\n  \"cache_candidates\": [\n    {\n      \"section\": \"error_patterns\",\n      \"value\": \"File path validation is critical: Direct paths like 'src/core/parser.py' or 'llm_engine.py' often fail if the corpus root is not '.' or if the path is relative to a different anchor. Always verify the corpus root before assuming absolute paths.\",\n      \"transferability\": \"Any question requiring file reading or code inspection in this corpus.\",\n      \"rationale\": \"The agent repeatedly failed due to incorrect path assumptions. This is a systemic navigation error that would cause failure on any future query involving file access unless corrected.\"\n    },\n    {\n      \"section\": \"parsing_schema\",\n      \"value\": \"Function and class definitions are scattered across the corpus. Reliable discovery requires broad `grep` searches (e.g., `grep -r 'def <name>'`) rather than assuming",
+      "al: Direct paths like 'src/core/parser.py' or 'llm_engine.py' often fail if the corpus root is not '.' or if the path is relative to a different anchor. Always verify the corpus root before assuming absolute paths.\",\n      \"transferability\": \"Any question requiring file reading or code inspection in this corpus.\",\n      \"rationale\": \"The agent repeatedly failed due to incorrect path assumptions. This is a systemic navigation error that would cause failure on any future query involving file access unless corrected.\"\n    },\n    {\n      \"section\": \"parsing_schema\",\n      \"value\": \"Function and class definitions are scattered across the corpus. Reliable discovery requires broad `grep` searches (e.g., `grep -r 'def <name>'`) rather than assuming specific file locations or using restrictive regex patterns like `^def` without verifying file structure first.\",\n      \"transferability\": \"Any question requiring locating code definitions, functions, or classes within the corpus.\",\n      \"rationale",
+      "al: Direct paths like 'src/core/parser.py' or 'llm_engine.py' often fail if the corpus root is not '.' or if the path is relative to a different anchor. Always verify the corpus root before assuming absolute paths.\",\n      \"transferability\": \"Any question requiring file reading or code inspection in this corpus.\",\n      \"rationale\": \"The agent repeatedly failed due to incorrect path assumptions. This is a systemic navigation error that would cause failure on any future query involving file access unless corrected.\"\n    },\n    {\n      \"section\": \"parsing_schema\",\n      \"value\": \"Function and class definitions are scattered across the corpus. Reliable discovery requires broad `grep` searches (e.g., `grep -r 'def <name>'`) rather than assuming specific file locations or using restrictive regex patterns like `^def` without verifying file structure first.\",\n      \"transferability\": \"Any question requiring locating code definitions, functions, or classes within the corpus.\",\n      \"rationale"
+    ],
+    "malformed_output_rate": 0.42857142857142855,
+    "malformed_outputs": 3,
+    "model_calls": 7,
+    "output_tokens": 1974,
+    "retry_calls": 2,
+    "retry_rate": 0.2857142857142857
+  },
+  "complete_artifact_bytes": 6469,
+  "completed_updates": 2,
+  "evaluation_inputs_seen": false,
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 5,
+    "dspy/propose/utils.py": 1
+  },
+  "failure": "RuntimeError: PEEK distiller failed structured output after 3 attempts",
+  "map_text_bytes": 258,
+  "map_text_tokens": 58,
+  "phase": "study_failed",
+  "protocol": "offline_peek_map",
+  "provenance": {
+    "artifact_schema_version": 1,
+    "artifact_type": "offline_peek_map",
+    "cli_overrides": {
+      "device": "cuda:0",
+      "local_files_only": true,
+      "max_records": 6,
+      "model": "data/models/Qwen3.5-9B",
+      "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "replay": 0.5,
+      "retries": 2,
+      "token_budget": 64
+    },
+    "command": "latent-study peek-study",
+    "corpus_hash": "55af7e1e61f774069507505603743e271e11ee6808b6cc10b53c47cbf352fe6e",
+    "model_id": "Qwen/Qwen3.5-9B",
+    "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "repository_commit": "b97f17531035302de83dd6a6a94a92110e7ee786",
+    "resolved_config_hash": "72bfe1334f0a0e16ed4db49ba9accb376b45e586bf119517d7d0ce57219e6577",
+    "source_tree_hash": "cd08762d5dab8a8fe1484d44584c5e177fe79ea85add5e8ba36b539f42008d80",
+    "tool_schema_hash": "75c3c6a62d9ce650e2f6989c440e8586fdc97d82ba0be82c9caa526b0c89a69e"
+  },
+  "replay_audit": {
+    "current_exposures": {
+      "dspy/dsp/utils/utils.py": 4,
+      "dspy/propose/utils.py": 1
+    },
+    "eligible_replay_opportunities": {
+      "dspy/dsp/utils/utils.py": 1,
+      "dspy/propose/utils.py": 0
+    },
+    "exposures_per_source": {
+      "dspy/dsp/utils/utils.py": 1,
+      "dspy/propose/utils.py": 0
+    },
+    "imbalance": {
+      "max": 1,
+      "max_to_min_ratio": null,
+      "mean": 0.5,
+      "min": 0,
+      "population_stdev": 0.5,
+      "range": 1,
+      "sources": 2
+    },
+    "no_opportunity_reason": "source was never a previous source before the sequential study ended",
+    "no_replay_opportunity_reasons": {
+      "dspy/propose/utils.py": "source was never a previous source before the sequential study ended"
+    },
+    "no_replay_opportunity_sources": [
+      "dspy/propose/utils.py"
+    ],
+    "previous_exposures": {
+      "dspy/dsp/utils/utils.py": 1,
+      "dspy/propose/utils.py": 0
+    },
+    "scheduler": "deterministic_least_exposed_among_currently_eligible_sources",
+    "zero_exposure_eligible_sources": []
+  },
+  "status": "failed",
+  "study_elapsed_seconds": 97.32958590425551,
+  "study_input_tokens": 22721,
+  "study_output_tokens": 1974,
+  "study_peak_memory_bytes": 19144202752,
+  "token_budget": 64,
+  "token_counter": "Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+}

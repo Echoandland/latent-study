@@ -1,0 +1,423 @@
+{
+  "batch_size": 2,
+  "deployable_latent_tensor_bytes": 49152,
+  "elapsed_seconds": 139.20042252540588,
+  "exposure_by_record": {
+    "rec_01338160f7532c3b9b6e": 2,
+    "rec_339f0a35b42740b84486": 2,
+    "rec_8ef8214158df288d85a9": 2,
+    "rec_a3e62bfe21a5da4c9266": 2,
+    "rec_afadfa96d343617b9084": 2,
+    "rec_dae9faf407100e76ef02": 2
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 2,
+    "dspy/propose/utils.py": 2,
+    "tests/adapters/test_tool.py": 2,
+    "tests/clients/test_cache.py": 2,
+    "tests/primitives/test_python_interpreter.py": 4
+  },
+  "frozen_lm_bitwise_unchanged": true,
+  "gradient_accumulation_steps": 1,
+  "gradient_balance": "rms_norm_sum_per_active_objective",
+  "gradient_diagnostics": [
+    {
+      "combined_rms": 1.6020458936691284,
+      "query_rms": 0.09381526708602905,
+      "rank_rms": 0.20932330191135406
+    },
+    {
+      "combined_rms": 1.0893539190292358,
+      "query_rms": 0.04908973351120949,
+      "rank_rms": 0.019090382382273674
+    },
+    {
+      "combined_rms": 1.1445859670639038,
+      "query_rms": 0.017230508849024773,
+      "rank_rms": 0.011075332760810852
+    },
+    {
+      "combined_rms": 1.7843137979507446,
+      "query_rms": 0.06374561786651611,
+      "rank_rms": 0.0011510979384183884
+    },
+    {
+      "combined_rms": 1.8333098888397217,
+      "query_rms": 0.058353062719106674,
+      "rank_rms": 0.0013497405452653766
+    },
+    {
+      "combined_rms": 0.7010249495506287,
+      "query_rms": 0.0881708413362503,
+      "rank_rms": 0.0028693268541246653
+    }
+  ],
+  "latent_checkpoint_artifact_bytes": 51633,
+  "lm_gradient_buffers": 0,
+  "losses": [
+    1.3334715962409973,
+    3.5173721313476562,
+    0.9833563566207886,
+    3.6352310180664062,
+    3.2704432010650635,
+    3.2141284942626953
+  ],
+  "objective_decrease_checks": {
+    "combined_decreased": true,
+    "query_decreased": true,
+    "rank_decreased": true
+  },
+  "objective_decrease_required": [
+    "combined_decreased"
+  ],
+  "objective_diagnostics_after": {
+    "aggregate": {
+      "combined": 2.568273146947225,
+      "query": 2.526374419530233,
+      "rank": 0.04189872741699219
+    },
+    "record_count": 6,
+    "records": [
+      {
+        "combined": 1.1501106023788452,
+        "query": 0.9245246648788452,
+        "rank": 0.2255859375,
+        "record_id": "rec_339f0a35b42740b84486"
+      },
+      {
+        "combined": 2.4926810264587402,
+        "query": 2.4880728721618652,
+        "rank": 0.004608154296875,
+        "record_id": "rec_afadfa96d343617b9084"
+      },
+      {
+        "combined": 3.5493974685668945,
+        "query": 3.5485925674438477,
+        "rank": 0.000804901123046875,
+        "record_id": "rec_dae9faf407100e76ef02"
+      },
+      {
+        "combined": 3.349228620529175,
+        "query": 3.342514753341675,
+        "rank": 0.0067138671875,
+        "record_id": "rec_8ef8214158df288d85a9"
+      },
+      {
+        "combined": 0.9279969930648804,
+        "query": 0.9154847860336304,
+        "rank": 0.01251220703125,
+        "record_id": "rec_a3e62bfe21a5da4c9266"
+      },
+      {
+        "combined": 3.9402241706848145,
+        "query": 3.939056873321533,
+        "rank": 0.00116729736328125,
+        "record_id": "rec_01338160f7532c3b9b6e"
+      }
+    ]
+  },
+  "objective_diagnostics_before": {
+    "aggregate": {
+      "combined": 2.7296675046284995,
+      "query": 2.633669376373291,
+      "rank": 0.09599812825520833
+    },
+    "record_count": 6,
+    "records": [
+      {
+        "combined": 1.3334715962409973,
+        "query": 0.9467528462409973,
+        "rank": 0.38671875,
+        "record_id": "rec_339f0a35b42740b84486"
+      },
+      {
+        "combined": 2.623549699783325,
+        "query": 2.605361223220825,
+        "rank": 0.0181884765625,
+        "record_id": "rec_afadfa96d343617b9084"
+      },
+      {
+        "combined": 3.6718006134033203,
+        "query": 3.6631946563720703,
+        "rank": 0.00860595703125,
+        "record_id": "rec_dae9faf407100e76ef02"
+      },
+      {
+        "combined": 3.597935676574707,
+        "query": 3.554966926574707,
+        "rank": 0.04296875,
+        "record_id": "rec_8ef8214158df288d85a9"
+      },
+      {
+        "combined": 1.0687703490257263,
+        "query": 0.9559773802757263,
+        "rank": 0.11279296875,
+        "record_id": "rec_a3e62bfe21a5da4c9266"
+      },
+      {
+        "combined": 4.08247709274292,
+        "query": 4.07576322555542,
+        "rank": 0.0067138671875,
+        "record_id": "rec_01338160f7532c3b9b6e"
+      }
+    ]
+  },
+  "optimizer": {
+    "learning_rate": 0.001,
+    "name": "AdamW",
+    "weight_decay": 0.01
+  },
+  "prefix_changed": true,
+  "provenance": {
+    "artifact_schema_version": 1,
+    "artifact_type": "latent_training_report",
+    "cli_overrides": {
+      "batch_size": 2,
+      "device": "cuda:0",
+      "dtype": "bfloat16",
+      "irrelevant_label": "B",
+      "learning_rate": 0.001,
+      "length": 3,
+      "max_records": 6,
+      "model": "data/models/Qwen3.5-9B",
+      "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "relevant_label": "A",
+      "replay": 0.0,
+      "updates_per_source": 1
+    },
+    "command": "latent-study train-latent",
+    "corpus_hash": "55af7e1e61f774069507505603743e271e11ee6808b6cc10b53c47cbf352fe6e",
+    "model_id": "Qwen/Qwen3.5-9B",
+    "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "repository_commit": "b97f17531035302de83dd6a6a94a92110e7ee786",
+    "resolved_config_hash": "873a0ea54905e5b99c2c4a73a94a02fe18cf2eabe0e5d6ba135d510ccef17f73",
+    "source_tree_hash": "cd08762d5dab8a8fe1484d44584c5e177fe79ea85add5e8ba36b539f42008d80",
+    "tool_schema_hash": "75c3c6a62d9ce650e2f6989c440e8586fdc97d82ba0be82c9caa526b0c89a69e"
+  },
+  "replay_exposure_by_source": {},
+  "replay_fraction": 0.0,
+  "replay_source_imbalance": {
+    "max": 0,
+    "max_to_min_ratio": 0.0,
+    "mean": 0.0,
+    "min": 0,
+    "population_stdev": 0.0,
+    "range": 0,
+    "sources": 5
+  },
+  "serialized_bytes": 51633,
+  "shards": [
+    {
+      "current_source_loss": 0.6667357981204987,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 4.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 4.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        },
+        "previous_recent_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "dspy/dsp/utils/utils.py"
+    },
+    {
+      "current_source_loss": 1.7586860656738281,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 5.125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 6.625,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 4.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 4.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "dspy/propose/utils.py"
+    },
+    {
+      "current_source_loss": 0.4916781783103943,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 5.03125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 4,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 5.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 4.1875,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 6.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/adapters/test_tool.py"
+    },
+    {
+      "current_source_loss": 1.8176155090332031,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 6.45,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 5,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 7.625,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 6.083333333333333,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 6.375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/clients/test_cache.py"
+    },
+    {
+      "current_source_loss": 1.6211429238319397,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 7.053571428571429,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 7,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 7.8125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 6.333333333333333,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 8.125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/primitives/test_python_interpreter.py"
+    }
+  ],
+  "skipped_preferences": 0,
+  "source_exposure_imbalance": {
+    "max": 4,
+    "max_to_min_ratio": 2.0,
+    "mean": 2.4,
+    "min": 2,
+    "population_stdev": 0.8,
+    "range": 2,
+    "sources": 5
+  },
+  "started": 1789122402.4554977,
+  "training_peak_memory_bytes": 34737531904
+}

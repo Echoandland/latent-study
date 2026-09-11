@@ -29,6 +29,7 @@ class SourceReplay:
         # batch would select previous_sources[0] forever.
         self._replay_source_cursor = 0
         self._record_cursors: dict[str, int] = {}
+        self._eligible_opportunities: dict[str, int] = {}
 
     def add_source(self, source: str, records: list[StudyRecord]) -> None:
         if source in self.bank:
@@ -39,13 +40,21 @@ class SourceReplay:
         current = self.bank[current_source]
         previous_sources = sorted(s for s in self.bank if s != current_source)
         previous_n = batch_size // 2 if previous_sources and self.replay_fraction == 0.5 else 0
+        if previous_n:
+            for source in previous_sources:
+                self._eligible_opportunities[source] = self._eligible_opportunities.get(source, 0) + previous_n
         current_n = batch_size - previous_n  # replay=0 compute-match: fill with current records
         order = list(range(len(current)))
         random.Random(f"{self.seed}:{current_source}:current-order").shuffle(order)
         cur = tuple(current[order[(step * current_n + i) % len(order)]] for i in range(current_n))
         prev = []
         for _ in range(previous_n):
-            source = previous_sources[self._replay_source_cursor % len(previous_sources)]
+            # Least-exposed scheduling is deterministic and balances the bank
+            # that is actually eligible at this point in sequential training.
+            minimum = min(self.previous_ledger.by_source.get(s, 0) for s in previous_sources)
+            eligible = [s for s in previous_sources
+                        if self.previous_ledger.by_source.get(s, 0) == minimum]
+            source = eligible[self._replay_source_cursor % len(eligible)]
             self._replay_source_cursor += 1
             # Each source has a stable seeded permutation, then cycles through it.
             order = list(range(len(self.bank[source])))
@@ -75,4 +84,26 @@ class SourceReplay:
             "range": maximum - minimum, "mean": statistics.fmean(counts),
             "population_stdev": statistics.pstdev(counts),
             "max_to_min_ratio": (maximum / minimum) if minimum else (None if maximum else 0.0),
+        }
+
+    def replay_audit(self) -> dict:
+        sources = sorted(self.bank)
+        zero = [source for source in sources
+                if self._eligible_opportunities.get(source, 0) > 0
+                and self.previous_ledger.by_source.get(source, 0) == 0]
+        no_opportunity = [source for source in sources if self._eligible_opportunities.get(source, 0) == 0]
+        return {
+            "scheduler": "deterministic_least_exposed_among_currently_eligible_sources",
+            "exposures_per_source": {s: self.previous_ledger.by_source.get(s, 0) for s in sources},
+            "eligible_replay_opportunities": {s: self._eligible_opportunities.get(s, 0) for s in sources},
+            "zero_exposure_eligible_sources": zero,
+            "no_replay_opportunity_sources": no_opportunity,
+            "no_replay_opportunity_reasons": {
+                source: "source was never a previous source before the sequential study ended"
+                for source in no_opportunity
+            },
+            "no_opportunity_reason": "source was never a previous source before the sequential study ended",
+            "imbalance": self.source_imbalance(sources, kind="previous"),
+            "current_exposures": {s: self.current_ledger.by_source.get(s, 0) for s in sources},
+            "previous_exposures": {s: self.previous_ledger.by_source.get(s, 0) for s in sources},
         }

@@ -15,6 +15,7 @@ class PrefixState:
     prefix_insertions: int = 1
     input_ids: object | None = None
     cache_mode: str = "native"
+    memory_boundary: int = 0
 
 
 class SoftPrefixLM:
@@ -47,20 +48,30 @@ class SoftPrefixLM:
     def chat_ids(self, messages, *, add_generation_prompt: bool = True):
         from .agent import serialize_chat_ids
         ids = serialize_chat_ids(self.tokenizer, messages, add_generation_prompt=add_generation_prompt)
-        return ids.to(self.prefix.device)
+        boundary = getattr(ids, "_memory_slot_start", 0)
+        ids = ids.to(self.prefix.device)
+        ids._memory_slot_start = boundary
+        ids._memory_slot_end = boundary
+        return ids
 
     def _supported(self, kwargs: dict) -> dict:
         signature = inspect.signature(self.model.forward)
         accepts_any = any(p.kind == p.VAR_KEYWORD for p in signature.parameters.values())
         return kwargs if accepts_any else {k: v for k, v in kwargs.items() if k in signature.parameters}
 
-    def prefill_ids(self, input_ids, *, use_cache: bool = True) -> PrefixState:
+    def prefill_ids(self, input_ids, *, use_cache: bool = True,
+                    memory_boundary: int | None = None) -> PrefixState:
         import torch
         if input_ids.ndim != 2 or input_ids.shape[0] != 1:
             raise ValueError("MVP prefix integration supports one unpadded sequence per root session")
+        if memory_boundary is None:
+            memory_boundary = int(getattr(input_ids, "_memory_slot_start", 0))
+        if not 0 <= memory_boundary <= input_ids.shape[1]:
+            raise ValueError("memory boundary falls outside serialized conversation")
         token_embeds = self.model.get_input_embeddings()(input_ids)
         prefix = self.prefix.unsqueeze(0).to(token_embeds.dtype)
-        inputs_embeds = torch.cat((prefix, token_embeds), dim=1)
+        inputs_embeds = torch.cat((token_embeds[:, :memory_boundary], prefix,
+                                  token_embeds[:, memory_boundary:]), dim=1)
         total = inputs_embeds.shape[1]
         attention = torch.ones((1, total), dtype=torch.long, device=inputs_embeds.device)
         positions = torch.arange(total, device=inputs_embeds.device).unsqueeze(0)
@@ -69,19 +80,21 @@ class SoftPrefixLM:
                                   "use_cache": use_cache, "return_dict": True,
                                   "logits_to_keep": 1})
         output = self.model(**kwargs)
-        mode = ("full_recompute" if getattr(self.model.config, "model_type", "").startswith("qwen3_5")
+        mode = ("full_recompute_fallback" if getattr(self.model.config, "model_type", "").startswith("qwen3_5")
                 else "native")
         return PrefixState(output.past_key_values if use_cache and mode == "native" else None, attention,
-                           output.logits[:, -1, :], total, 1, input_ids.detach(), mode)
+                           output.logits[:, -1, :], total, 1, input_ids.detach(), mode,
+                           memory_boundary)
 
     def append_ids(self, state: PrefixState, input_ids) -> PrefixState:
         # Transformers 5.3's torch fallback for Qwen3.5 DeltaNet produces
         # materially different logits for recurrent-cache vs chunk recompute.
         # Until an equivalent kernel is available, retain exact token history
         # and recompute. This is slower but prevents silently invalid results.
-        if state.cache_mode == "full_recompute":
+        if state.cache_mode == "full_recompute_fallback":
             if state.input_ids is None: raise RuntimeError("Qwen recompute state lost token history")
-            return self.prefill_ids(__import__("torch").cat((state.input_ids, input_ids), dim=1), use_cache=False)
+            return self.prefill_ids(__import__("torch").cat((state.input_ids, input_ids), dim=1),
+                                    use_cache=False, memory_boundary=state.memory_boundary)
         return self._append_block(state, input_ids)
 
     def _append_block(self, state: PrefixState, input_ids) -> PrefixState:
@@ -102,7 +115,8 @@ class SoftPrefixLM:
         history = (__import__("torch").cat((state.input_ids, input_ids), dim=1)
                    if state.input_ids is not None else None)
         return PrefixState(output.past_key_values, attention, output.logits[:, -1, :],
-                           state.total_length + count, 1, history, state.cache_mode)
+                           state.total_length + count, 1, history, state.cache_mode,
+                           state.memory_boundary)
 
     def generate_from_state(self, state: PrefixState, *, max_new_tokens: int,
                             temperature: float = 0.0, generator=None):
@@ -133,9 +147,12 @@ class SoftPrefixLM:
         import torch.nn.functional as F
         if context_ids.shape[0] != 1 or action_ids.shape[0] != 1 or action_ids.shape[1] < 1:
             raise ValueError("single nonempty action sequence required")
+        memory_boundary = int(getattr(context_ids, "_memory_slot_start", 0))
         ids = torch.cat((context_ids, action_ids), dim=1)
         token_embeds = self.model.get_input_embeddings()(ids)
-        embeds = torch.cat((self.prefix.unsqueeze(0).to(token_embeds.dtype), token_embeds), dim=1)
+        embeds = torch.cat((token_embeds[:, :memory_boundary],
+                            self.prefix.unsqueeze(0).to(token_embeds.dtype),
+                            token_embeds[:, memory_boundary:]), dim=1)
         total = embeds.shape[1]
         mask = torch.ones((1, total), dtype=torch.long, device=embeds.device)
         positions = torch.arange(total, device=embeds.device).unsqueeze(0)
@@ -162,22 +179,37 @@ class SoftPrefixLM:
             raise ValueError("ranking labels tokenize to the same token")
         return ids[0], ids[1]
 
-    def save(self, path: str | Path, *, corpus_hash: str, model_id: str) -> None:
+    def save(self, path: str | Path, *, corpus_hash: str, model_id: str,
+             model_revision: str = "", seed: int | None = None,
+             provenance: dict | None = None) -> None:
         import torch
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({"prefix": self.prefix.detach().cpu(), "length": self.length,
                     "hidden_size": self.hidden_size, "corpus_hash": corpus_hash,
-                    "model_id": model_id, "phase": "frozen_before_evaluation",
-                    "evaluation_inputs_seen": False}, path)
+                    "model_id": model_id, "model_revision": model_revision,
+                    "seed": seed, "phase": "frozen_before_evaluation",
+                    "evaluation_inputs_seen": False, "artifact_schema_version": 1,
+                    "provenance": provenance or {}}, path)
 
-    def load(self, path: str | Path, *, expected_corpus_hash: str | None = None) -> dict:
+    def load(self, path: str | Path, *, expected_corpus_hash: str | None = None,
+             expected_model_id: str | None = None,
+             expected_model_revision: str | None = None,
+             expected_phase: str = "frozen_before_evaluation") -> dict:
         import torch
         payload = torch.load(path, map_location=self.prefix.device, weights_only=True)
         if payload["prefix"].shape != self.prefix.shape:
             raise ValueError("saved prefix shape does not match model")
         if expected_corpus_hash and payload["corpus_hash"] != expected_corpus_hash:
             raise ValueError("latent belongs to a different corpus snapshot")
+        if expected_model_id and payload.get("model_id") != expected_model_id:
+            raise ValueError("latent belongs to a different model")
+        if expected_model_revision and payload.get("model_revision") != expected_model_revision:
+            raise ValueError("latent belongs to a different model revision")
+        if payload.get("phase") != expected_phase or payload.get("evaluation_inputs_seen") is not False:
+            raise ValueError("latent is not a clean pre-evaluation frozen artifact")
+        if payload.get("length") != self.length or payload.get("hidden_size") != self.hidden_size:
+            raise ValueError("latent length/hidden size is incompatible with the deployment model")
         with torch.no_grad():
             self.prefix.copy_(payload["prefix"].to(dtype=self.prefix.dtype))
         return {k: v for k, v in payload.items() if k != "prefix"}

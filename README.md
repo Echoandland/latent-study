@@ -2,7 +2,7 @@
 
 Minimal, corpus-specific latent memory for strict offline Machine Studying. The experiment compares one learned global soft prefix with a frozen textual PEEK map while keeping Qwen3.5-9B, DSPy corpus access, search implementation, root-agent loop, and evaluation budgets fixed.
 
-This repository is an executable MVP scaffold, not a completed benchmark claim. The source/corpus audit and deterministic smoke artifacts are checked in; no full corpus record generation or 9B training was started.
+This repository is an executable MVP scaffold, not a completed benchmark claim. The source/corpus audit, a bounded 50-record frozen-base generation, and L=3 GPU pilots are retained as repair evidence; no full corpus training or StudyBench evaluation was started.
 
 ## Pinned scope
 
@@ -39,7 +39,7 @@ pip install -r requirements.lock
 pip install -e .
 ```
 
-The PyTorch wheel should be chosen for the host CUDA version when the generic lock entry is unsuitable.
+The PyTorch wheel should be chosen for the host CUDA version when the generic lock entry is unsuitable. The repair host used PyTorch 2.6.0+cu124, Transformers 5.3.0, and four RTX 6000 Ada GPUs; the pinned `fla`/`causal-conv1d` fast kernels were unavailable, so Qwen timing uses the Transformers torch fallback.
 
 ## Reproduce source and corpus audit
 
@@ -68,7 +68,7 @@ latent-study generate-records \
   --actions 4 --seed 17
 ```
 
-Generation can be split into independent deterministic workers with `--num-workers K --worker-index i`; concatenate their JSONL outputs and sort/deduplicate by `record_id` before training.
+Generation can be split into independent deterministic workers with `--num-workers K --worker-index i`. Candidate seeds are derived from the global seed and record ID, not worker-local order. Merge shards only through `latent-study merge-records --expected-workers K --input ... --output ...`; it rejects missing/duplicate shards, duplicate record IDs, and corpus/config/model/tool mismatches, then emits deterministic record-ID order.
 
 Without `--candidate-model`, the command fails closed unless `--deterministic-smoke` is explicitly given. The latter is only for tests and is labeled in every record. Multi-fact records carry separate required evidence groups. Full visible evidence after normal truncation—not path overlap—drives reward. Semantic and within-document position distances remain disabled.
 
@@ -97,7 +97,7 @@ CUDA_VISIBLE_DEVICES=0 latent-study train-latent \
 
 Only `Z_D` is passed to AdamW. Base parameters have `requires_grad=False`, but forward computation is not wrapped in `no_grad`, so gradients reach input-prefix embeddings. Query loss is a reward-weighted, length-normalized pairwise action loss over action tokens only; it is not DPO. Ranking uses the same frozen LM's next-token `A-B` logit difference, with actual-tokenizer single-token validation and loss averaged over every required evidence group.
 
-The prefix is placed before the chat-template token embeddings. Attention masks, cache positions, and text/multimodal RoPE positions include it. Tool observations extend the same hybrid Qwen cache without inserting the prefix again. Checkpoints contain the prefix tensor and provenance independently of the LM.
+One shared serializer defines the logical prompt order `system/tool instructions -> corpus memory slot -> user/history`. Textual PEEK tokens occupy that slot; the soft prefix embeddings are spliced at the slot's exact token boundary. Training, candidate generation, ranking, and the root loop use this serializer. Attention masks and positions include the soft memory once. Qwen3.5 cached continuation is not currently claimed: the exact path is explicitly named `full_recompute_fallback` and root runs require `--acknowledge-full-recompute-fallback`.
 
 ## Study PEEK offline
 
@@ -113,7 +113,7 @@ latent-study peek-study --records artifacts/study/dspy_records.jsonl \
   --tokenizer Qwen/Qwen3.5-9B --replay 0.5
 ```
 
-The 64-token condition starts from PEEK's valid section syntax without its explanatory initial filler, because the stock template alone exceeds 64 tokens. The Distiller/Cartographer/priority Evictor policy remains upstream code.
+The 64-token condition starts from PEEK's valid section syntax without its explanatory initial filler, because the stock template alone exceeds 64 tokens. The Distiller/Cartographer/priority Evictor policy remains upstream code. The adapter validates Distiller and Cartographer schemas separately, retries deterministic generations with the exact expected schema, and fails without writing a result if an update fails or the final map is empty, header-only, non-readable, or lacks navigation content.
 
 ## Replay, evaluation, and tests
 
@@ -144,10 +144,10 @@ The expertise command implements the primary specification exactly: best score a
 
 Primary downstream conditions are no study, random latent L64, trained latent L64, offline PEEK 64, and offline PEEK 1024. They must use identical root-agent, search limits, corpus, output constraints, and inference budgets. The evidence scorer is training/diagnostic-only and is not an evaluation-time reranker.
 
-## Current audit and smoke status
+## Current repair validation status
 
-The pinned DSPy snapshot produced 371 decoded text documents, 2,571 non-overlapping semantic units, an estimated 513,596 eligible lexical tokens, 4,567 symbol occurrences, and 10,284 structurally extracted relations in 2.05 seconds at 81,324 KiB peak RSS. These are tokenizer-independent audit estimates; actual model-token exposure must be reported during training.
+The current schema-v1 provenance audit produced 371 decoded text documents, 2,571 non-overlapping semantic units, an estimated 513,596 eligible lexical tokens, 4,567 symbol occurrences, 14,048 syntactic call sites, and 1,733 conservatively verified call relations. It reports 90 ambiguous, 2,953 lexically shadowed, and 9,272 otherwise excluded call sites. These are tokenizer-independent audit estimates; actual model-token exposure must be reported during training.
 
-The checked-in smoke bank contains 6 records (4 definition, 2 relation/navigation), two actions each, and deliberately covers only 6/2,571 units. The pinned official tokenizer/config verified `d=4096`, `A`=`token 32`, and `B`=`token 33`; both labels are exactly one token. CPU/mock tests cover isolation, prefix/cache, losses, exact evidence visibility, deterministic replay, and the official metric.
+CPU/mock validation currently collects 32 tests. It covers isolation, provenance rejection, the shared memory boundary, prefix placement, combined production optimization, exact rendered evidence visibility, lexical shadowing, dynamically growing replay, worker invariance/merge, separate PEEK format failures and failed-study diagnostics, all five synthetic root-loop conditions, and the official metric.
 
-The real Qwen3.5-9B L=3 smoke passed on one RTX 6000 Ada: LM parameters frozen, prefix gradient nonzero, zero LM gradient buffers, bit-exact latent save/load logits, one prefix insertion across a two-token tool observation and two generated tokens. It took 11.00s total (7.14s load, 2.37s paired forward/backward) with 19,441,522,176 bytes peak allocated GPU memory; the standalone latent artifact is 50,589 bytes. See [real_model_smoke.json](artifacts/smoke/real_model_smoke.json) and [DEVIATIONS.md](docs/DEVIATIONS.md) before interpreting any result.
+All older checked-in record, replay, latent, PEEK, root-agent, and real-Qwen result artifacts predate the current artifact contract and are historical only. Production loaders reject them rather than silently treating them as current. In particular, the historical PEEK-64 map is only `## CONTEXT ROADMAP` (5 actual Qwen tokens), and the historical combined-objective smoke increased from about 1.7529 to 1.9798. The repair host exposed four CUDA GPUs outside the conversation sandbox; bounded Qwen record generation and L=3 pilots ran, while the strengthened smoke and PEEK-64 gates failed closed. See [REPAIR_REPORT.md](docs/REPAIR_REPORT.md) for exact commands and blockers.

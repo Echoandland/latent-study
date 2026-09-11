@@ -1,0 +1,428 @@
+{
+  "batch_size": 2,
+  "deployable_latent_tensor_bytes": 49152,
+  "elapsed_seconds": 134.99847054481506,
+  "exposure_by_record": {
+    "rec_01338160f7532c3b9b6e": 1,
+    "rec_339f0a35b42740b84486": 4,
+    "rec_8ef8214158df288d85a9": 2,
+    "rec_a3e62bfe21a5da4c9266": 2,
+    "rec_afadfa96d343617b9084": 1,
+    "rec_dae9faf407100e76ef02": 2
+  },
+  "exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 4,
+    "dspy/propose/utils.py": 2,
+    "tests/adapters/test_tool.py": 2,
+    "tests/clients/test_cache.py": 2,
+    "tests/primitives/test_python_interpreter.py": 2
+  },
+  "frozen_lm_bitwise_unchanged": true,
+  "gradient_accumulation_steps": 1,
+  "gradient_balance": "rms_norm_sum_per_active_objective",
+  "gradient_diagnostics": [
+    {
+      "combined_rms": 1.5873336791992188,
+      "query_rms": 0.0939924344420433,
+      "rank_rms": 0.20721538364887238
+    },
+    {
+      "combined_rms": 1.1521291732788086,
+      "query_rms": 0.04987037926912308,
+      "rank_rms": 0.04210798814892769
+    },
+    {
+      "combined_rms": 1.1961541175842285,
+      "query_rms": 0.04169880971312523,
+      "rank_rms": 0.019266784191131592
+    },
+    {
+      "combined_rms": 1.5474224090576172,
+      "query_rms": 0.024508219212293625,
+      "rank_rms": 0.003317647846415639
+    },
+    {
+      "combined_rms": 1.396596074104309,
+      "query_rms": 0.018891213461756706,
+      "rank_rms": 0.0014749913243576884
+    },
+    {
+      "combined_rms": 1.6234830617904663,
+      "query_rms": 0.027860354632139206,
+      "rank_rms": 0.011162271723151207
+    }
+  ],
+  "latent_checkpoint_artifact_bytes": 51638,
+  "lm_gradient_buffers": 0,
+  "losses": [
+    1.3334715962409973,
+    2.3622551560401917,
+    2.246691048145294,
+    2.296781688928604,
+    3.0687464475631714,
+    2.489419311285019
+  ],
+  "objective_decrease_checks": {
+    "combined_decreased": true,
+    "query_decreased": true,
+    "rank_decreased": true
+  },
+  "objective_decrease_required": [
+    "combined_decreased"
+  ],
+  "objective_diagnostics_after": {
+    "aggregate": {
+      "combined": 2.544831395149231,
+      "query": 2.5181857347488403,
+      "rank": 0.026645660400390625
+    },
+    "record_count": 6,
+    "records": [
+      {
+        "combined": 1.0619105100631714,
+        "query": 0.9193323850631714,
+        "rank": 0.142578125,
+        "record_id": "rec_339f0a35b42740b84486"
+      },
+      {
+        "combined": 2.569587469100952,
+        "query": 2.567657232284546,
+        "rank": 0.00193023681640625,
+        "record_id": "rec_afadfa96d343617b9084"
+      },
+      {
+        "combined": 3.4969406127929688,
+        "query": 3.49591064453125,
+        "rank": 0.00102996826171875,
+        "record_id": "rec_dae9faf407100e76ef02"
+      },
+      {
+        "combined": 3.2853446006774902,
+        "query": 3.2786307334899902,
+        "rank": 0.0067138671875,
+        "record_id": "rec_8ef8214158df288d85a9"
+      },
+      {
+        "combined": 0.9154034852981567,
+        "query": 0.9094830751419067,
+        "rank": 0.00592041015625,
+        "record_id": "rec_a3e62bfe21a5da4c9266"
+      },
+      {
+        "combined": 3.9398016929626465,
+        "query": 3.9381003379821777,
+        "rank": 0.00170135498046875,
+        "record_id": "rec_01338160f7532c3b9b6e"
+      }
+    ]
+  },
+  "objective_diagnostics_before": {
+    "aggregate": {
+      "combined": 2.7296675046284995,
+      "query": 2.633669376373291,
+      "rank": 0.09599812825520833
+    },
+    "record_count": 6,
+    "records": [
+      {
+        "combined": 1.3334715962409973,
+        "query": 0.9467528462409973,
+        "rank": 0.38671875,
+        "record_id": "rec_339f0a35b42740b84486"
+      },
+      {
+        "combined": 2.623549699783325,
+        "query": 2.605361223220825,
+        "rank": 0.0181884765625,
+        "record_id": "rec_afadfa96d343617b9084"
+      },
+      {
+        "combined": 3.6718006134033203,
+        "query": 3.6631946563720703,
+        "rank": 0.00860595703125,
+        "record_id": "rec_dae9faf407100e76ef02"
+      },
+      {
+        "combined": 3.597935676574707,
+        "query": 3.554966926574707,
+        "rank": 0.04296875,
+        "record_id": "rec_8ef8214158df288d85a9"
+      },
+      {
+        "combined": 1.0687703490257263,
+        "query": 0.9559773802757263,
+        "rank": 0.11279296875,
+        "record_id": "rec_a3e62bfe21a5da4c9266"
+      },
+      {
+        "combined": 4.08247709274292,
+        "query": 4.07576322555542,
+        "rank": 0.0067138671875,
+        "record_id": "rec_01338160f7532c3b9b6e"
+      }
+    ]
+  },
+  "optimizer": {
+    "learning_rate": 0.001,
+    "name": "AdamW",
+    "weight_decay": 0.01
+  },
+  "prefix_changed": true,
+  "provenance": {
+    "artifact_schema_version": 1,
+    "artifact_type": "latent_training_report",
+    "cli_overrides": {
+      "batch_size": 2,
+      "device": "cuda:0",
+      "dtype": "bfloat16",
+      "irrelevant_label": "B",
+      "learning_rate": 0.001,
+      "length": 3,
+      "max_records": 6,
+      "model": "data/models/Qwen3.5-9B",
+      "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "relevant_label": "A",
+      "replay": 0.5,
+      "updates_per_source": 1
+    },
+    "command": "latent-study train-latent",
+    "corpus_hash": "55af7e1e61f774069507505603743e271e11ee6808b6cc10b53c47cbf352fe6e",
+    "model_id": "Qwen/Qwen3.5-9B",
+    "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "repository_commit": "b97f17531035302de83dd6a6a94a92110e7ee786",
+    "resolved_config_hash": "0e433a61f2e8186ecb0f1a6844d225bf4d27daadb214a93bc864ead69ccf3733",
+    "source_tree_hash": "cd08762d5dab8a8fe1484d44584c5e177fe79ea85add5e8ba36b539f42008d80",
+    "tool_schema_hash": "75c3c6a62d9ce650e2f6989c440e8586fdc97d82ba0be82c9caa526b0c89a69e"
+  },
+  "replay_exposure_by_source": {
+    "dspy/dsp/utils/utils.py": 2,
+    "dspy/propose/utils.py": 1,
+    "tests/adapters/test_tool.py": 1,
+    "tests/clients/test_cache.py": 1
+  },
+  "replay_fraction": 0.5,
+  "replay_source_imbalance": {
+    "max": 2,
+    "max_to_min_ratio": null,
+    "mean": 1.0,
+    "min": 0,
+    "population_stdev": 0.6324555320336759,
+    "range": 2,
+    "sources": 5
+  },
+  "serialized_bytes": 51638,
+  "shards": [
+    {
+      "current_source_loss": 0.6667357981204987,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 4.3125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 4.3125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        },
+        "previous_recent_sources": {
+          "margin": null,
+          "query_exact_hit": null,
+          "query_group_coverage": null,
+          "rank_correct": null,
+          "records": 0,
+          "valid_action": null
+        }
+      },
+      "previous_source_loss": null,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "dspy/dsp/utils/utils.py"
+    },
+    {
+      "current_source_loss": 1.7589936256408691,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 4.958333333333333,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 6.25,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 4.3125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 4.3125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": 0.6032615303993225,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "dspy/propose/utils.py"
+    },
+    {
+      "current_source_loss": 0.47909921407699585,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 5.4375,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 4,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 5.5,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 4.75,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 6.75,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": 1.7675918340682983,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/adapters/test_tool.py"
+    },
+    {
+      "current_source_loss": 1.818719506263733,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 5.8,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 5,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 7.125,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 5.416666666666667,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 5.625,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": 0.4780621826648712,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/clients/test_cache.py"
+    },
+    {
+      "current_source_loss": 1.6393589973449707,
+      "fixed_corpus_probes": {
+        "all_probe_sources": {
+          "margin": 6.267857142857143,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 7,
+          "valid_action": 1.0
+        },
+        "current_source": {
+          "margin": 7.0,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 2,
+          "valid_action": 1.0
+        },
+        "previous_early_sources": {
+          "margin": 5.5,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 3,
+          "valid_action": 1.0
+        },
+        "previous_recent_sources": {
+          "margin": 7.5,
+          "query_exact_hit": 1.0,
+          "query_group_coverage": 1.0,
+          "rank_correct": 1.0,
+          "records": 1,
+          "valid_action": 1.0
+        }
+      },
+      "previous_source_loss": 1.1397238820791245,
+      "probe_use": "measurement only; never checkpoint selection",
+      "source": "tests/primitives/test_python_interpreter.py"
+    }
+  ],
+  "skipped_preferences": 0,
+  "source_exposure_imbalance": {
+    "max": 4,
+    "max_to_min_ratio": 2.0,
+    "mean": 2.4,
+    "min": 2,
+    "population_stdev": 0.8,
+    "range": 2,
+    "sources": 5
+  },
+  "started": 1789122587.177001,
+  "training_peak_memory_bytes": 34737531904
+}

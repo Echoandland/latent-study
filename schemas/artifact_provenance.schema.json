@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artifact_provenance.schema.json",
+  "title": "Latent Study Artifact Provenance",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "artifact_schema_version",
+    "artifact_type",
+    "repository_commit",
+    "source_tree_hash",
+    "resolved_config_hash",
+    "model_id",
+    "model_revision",
+    "corpus_hash",
+    "tool_schema_hash",
+    "command",
+    "cli_overrides"
+  ],
+  "properties": {
+    "artifact_schema_version": {"const": 1},
+    "artifact_type": {"type": "string", "minLength": 1},
+    "repository_commit": {"type": "string", "minLength": 1},
+    "source_tree_hash": {"type": "string", "minLength": 1},
+    "resolved_config_hash": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "model_revision": {"type": "string", "minLength": 1},
+    "corpus_hash": {"type": "string", "minLength": 1},
+    "tool_schema_hash": {"type": "string", "minLength": 1},
+    "command": {"type": "string", "minLength": 1},
+    "cli_overrides": {"type": "object"}
+  }
+}
