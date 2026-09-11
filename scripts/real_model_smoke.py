@@ -17,7 +17,7 @@ from latent_study.agent import PrefixAgentSession, ranking_state_messages, study
 from latent_study.corpus import build_manifest
 from latent_study.io import write_json
 from latent_study.io import canonical_hash
-from latent_study.artifacts import provenance
+from latent_study.artifacts import artifact_payload_hash, provenance
 from latent_study.search import TOOL_SCHEMA_HASH
 from latent_study.latent import load_qwen
 from latent_study.records import generate_coverage_records
@@ -42,7 +42,8 @@ def main():
         model_id="Qwen/Qwen3.5-9B", model_revision=args.revision or "unresolved",
         corpus_hash="real-smoke-only", tool_schema_hash=TOOL_SCHEMA_HASH,
         command="python scripts/real_model_smoke.py", cli_overrides=vars(args),
-        repository_root=ROOT)
+        repository_root=ROOT, tokenizer_id=args.model,
+        tokenizer_revision=args.revision or "unresolved")
 
     import torch
     torch.manual_seed(args.seed)
@@ -128,11 +129,14 @@ def main():
     reference_ids = wrapper.chat_ids([{"role": "system", "content": "Synthetic reload check."},
                                       {"role": "user", "content": "reload comparison"}])
     reference_logits = wrapper.prefill_ids(reference_ids, use_cache=False).next_logits.detach().float().cpu()
-    torch.save({"input_ids": reference_ids.cpu(), "logits": reference_logits,
-                "memory_boundary": int(getattr(reference_ids, "_memory_slot_start")),
-                "artifact_schema_version": 1,
-                "provenance": {**base_provenance, "artifact_type": "reload_reference"}},
-               str(args.checkpoint) + ".reference.pt")
+    reference_provenance = {**base_provenance, "artifact_type": "reload_reference",
+                            "artifact_sha256": None}
+    reference_payload = {"input_ids": reference_ids.cpu(), "logits": reference_logits,
+                         "memory_boundary": int(getattr(reference_ids, "_memory_slot_start")),
+                         "artifact_schema_version": 2,
+                         "provenance": reference_provenance}
+    reference_provenance["artifact_sha256"] = artifact_payload_hash(reference_payload)
+    torch.save(reference_payload, str(args.checkpoint) + ".reference.pt")
     if args.device.startswith("cuda"): torch.cuda.synchronize()
     report = {
         "scope": "strengthened real-model smoke; synthetic corpus only", "model": "Qwen/Qwen3.5-9B",
@@ -170,7 +174,7 @@ def main():
         "process_peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
         "latent_serialized_bytes": Path(args.checkpoint).stat().st_size,
         "reload_reference": str(args.checkpoint) + ".reference.pt",
-        "artifact_schema_version": 1, "provenance": base_provenance}
+        "artifact_schema_version": 2, "provenance": base_provenance}
     # A full-recompute fallback can be internally self-consistent, but that is
     # not evidence that a cached continuation is equivalent. Keep the public
     # cache gate explicitly unverified/failed until a native Qwen path exists.

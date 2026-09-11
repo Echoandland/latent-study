@@ -27,6 +27,95 @@ TOOL_SCHEMAS = {
 TOOL_SCHEMA_HASH = canonical_hash(TOOL_SCHEMAS)
 
 
+class ToolActionValidationError(ValueError):
+    """A model/tool action does not satisfy the public JSON schema."""
+
+
+def _is_integer(value) -> bool:
+    # ``bool`` is an ``int`` subclass but is never a valid JSON-schema integer
+    # for a line number or result count.
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def parse_and_validate_tool_action(value) -> ToolAction:
+    """Parse one action using the exact schema exposed in ``TOOL_SCHEMAS``.
+
+    The validator intentionally derives allowed keys, required keys, types and
+    minimums from ``TOOL_SCHEMAS`` rather than maintaining a second list in the
+    agent loop.  It accepts a JSON string or an already-decoded object.
+    """
+    if isinstance(value, str):
+        try:
+            def reject_duplicate_keys(pairs):
+                result = {}
+                for key, item in pairs:
+                    if key in result:
+                        raise ToolActionValidationError(f"duplicate property: {key}")
+                    result[key] = item
+                return result
+            value = json.loads(value, object_pairs_hook=reject_duplicate_keys)
+        except json.JSONDecodeError as exc:
+            raise ToolActionValidationError(f"invalid JSON: {exc.msg}") from exc
+    if not isinstance(value, dict):
+        raise ToolActionValidationError("action must be a JSON object")
+    tool = value.get("tool")
+    if not isinstance(tool, str) or tool not in TOOL_SCHEMAS:
+        raise ToolActionValidationError("tool must be one of grep, glob, read_file")
+    schema = TOOL_SCHEMAS[tool]
+    required = set(schema.get("required", ()))
+    properties = schema.get("properties", {})
+    unknown = set(value) - set(properties)
+    missing = required - set(value)
+    if unknown and schema.get("additionalProperties", True) is False:
+        raise ToolActionValidationError("unknown properties: " + ", ".join(sorted(map(str, unknown))))
+    if missing:
+        raise ToolActionValidationError("missing properties: " + ", ".join(sorted(missing)))
+    for name, spec in properties.items():
+        if name not in value:
+            continue
+        item = value[name]
+        if "const" in spec and item != spec["const"]:
+            raise ToolActionValidationError(f"{name} must equal {spec['const']!r}")
+        if "enum" in spec and item not in spec["enum"]:
+            raise ToolActionValidationError(f"{name} must be one of {spec['enum']!r}")
+        expected = spec.get("type")
+        if expected == "string":
+            if (not isinstance(item, str) or len(item) < int(spec.get("minLength", 0))
+                    or ("maxLength" in spec and len(item) > int(spec["maxLength"]))
+                    or ("pattern" in spec and re.search(spec["pattern"], item) is None)):
+                raise ToolActionValidationError(f"{name} must satisfy the string schema")
+        elif expected == "integer":
+            if (not _is_integer(item) or item < int(spec.get("minimum", 0))
+                    or ("maximum" in spec and item > int(spec["maximum"]))):
+                raise ToolActionValidationError(f"{name} must satisfy the integer schema")
+        elif expected == "number":
+            if (isinstance(item, bool) or not isinstance(item, (int, float))
+                    or ("minimum" in spec and item < float(spec["minimum"]))
+                    or ("maximum" in spec and item > float(spec["maximum"]))):
+                raise ToolActionValidationError(f"{name} must satisfy the number schema")
+        elif expected == "boolean" and not isinstance(item, bool):
+            raise ToolActionValidationError(f"{name} must be a boolean")
+        elif isinstance(expected, list):
+            valid_types = {"integer": _is_integer, "string": lambda x: isinstance(x, str),
+                           "number": lambda x: isinstance(x, (int, float)) and not isinstance(x, bool),
+                           "boolean": lambda x: isinstance(x, bool)}
+            if not any(valid_types.get(kind, lambda _x: True)(item) for kind in expected):
+                raise ToolActionValidationError(f"{name} has an invalid type")
+    if tool == "grep":
+        payload = {"tool": tool, "query": value["query"],
+                   "path": value.get("path", "."), "max_results": value.get("max_results", 5)}
+        if not isinstance(payload["path"], str):
+            raise ToolActionValidationError("path must be a string")
+        return ToolAction(**payload)
+    if tool == "glob":
+        return ToolAction(tool=tool, pattern=value["pattern"],
+                          max_results=value.get("max_results", 5))
+    start, end = value["start_line"], value["end_line"]
+    if start > end:
+        raise ToolActionValidationError("end_line must be >= start_line")
+    return ToolAction(tool=tool, path=value["path"], start_line=start, end_line=end)
+
+
 @dataclass(frozen=True)
 class SearchLimits:
     max_results: int = 5
@@ -39,8 +128,12 @@ class SearchLimits:
 class CodingTools:
     """Pinned local reproduction of grep/glob/read_file over the raw corpus."""
 
-    def __init__(self, root: str | Path, units: Iterable[CorpusUnit], limits: SearchLimits = SearchLimits()):
+    def __init__(self, root: str | Path, units: Iterable[CorpusUnit], limits: SearchLimits = SearchLimits(),
+                 *, manifest: dict | None = None):
         self.root = Path(root).resolve()
+        if manifest is not None:
+            from .corpus import verify_manifest_against_live_corpus
+            verify_manifest_against_live_corpus(manifest, self.root)
         self.units = tuple(units)
         self.limits = limits
         self._by_path: dict[str, list[CorpusUnit]] = {}
@@ -87,10 +180,20 @@ class CodingTools:
         return tuple(final_hits), "\n---\n".join(rendered) if rendered else "NO RESULTS"
 
     def execute(self, action: ToolAction) -> tuple[bool, tuple[ToolHit, ...], str]:
-        if action.tool == "grep": return self._grep(action)
-        if action.tool == "glob": return self._glob(action)
-        if action.tool == "read_file": return self._read_file(action)
-        return False, (), "ERROR: unknown tool"
+        try:
+            raw = action.to_payload() if isinstance(action, ToolAction) else action
+            action = parse_and_validate_tool_action(raw)
+        except (AttributeError, TypeError, ToolActionValidationError) as exc:
+            return False, (), f"ERROR: invalid tool action: {exc}"
+        try:
+            if action.tool == "grep": return self._grep(action)
+            if action.tool == "glob": return self._glob(action)
+            if action.tool == "read_file": return self._read_file(action)
+            return False, (), "ERROR: unknown tool"
+        except (AttributeError, TypeError, ValueError, re.error) as exc:
+            # A malformed model action must be observable as a tool error, not
+            # as an exception that aborts a study/root-agent episode.
+            return False, (), f"ERROR: tool execution failed: {exc}"
 
     def _grep(self, action: ToolAction):
         query = action.query.strip()

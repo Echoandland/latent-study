@@ -32,7 +32,20 @@ def jsonable(value: Any) -> Any:
 def write_json(path: str | Path, value: Any) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(jsonable(value), indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    payload = jsonable(value)
+    # Artifact payloads embed their provenance.  Compute the content digest in
+    # two passes with only the self-referential field blanked; ordinary JSON
+    # helpers remain unchanged for non-artifact metadata.
+    if isinstance(payload, dict) and isinstance(payload.get("provenance"), dict):
+        from .artifacts import artifact_payload_hash
+        metadata = dict(payload["provenance"])
+        metadata["artifact_sha256"] = None
+        payload["provenance"] = metadata
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+        metadata["artifact_sha256"] = artifact_payload_hash(payload)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+        return
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
 
 def write_jsonl(path: str | Path, rows: Iterable[Any]) -> None:
@@ -41,4 +54,3 @@ def write_jsonl(path: str | Path, rows: Iterable[Any]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(jsonable(row), sort_keys=True, ensure_ascii=False) + "\n")
-

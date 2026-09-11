@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 import time
 import re
 
 from .io import write_json
-from .replay import SourceReplay
+from .replay import SourceReplay, matched_shard_steps
 from .schema import StudyRecord
 
 
@@ -20,13 +19,29 @@ _MAP_SECTIONS = {
 class QwenPeekClient:
     """Production PEEK LMClient backed by the same frozen Qwen deployment model."""
 
-    def __init__(self, model, tokenizer, *, max_new_tokens: int = 384, retries: int = 1):
+    def __init__(self, model, tokenizer, *, max_new_tokens: int = 1024,
+                 internal_max_new_tokens: int | None = None,
+                 retry_max_new_tokens: int | None = None, retries: int = 1):
         self.model, self.tokenizer = model, tokenizer
-        self.max_new_tokens, self.retries = max_new_tokens, retries
+        # This is the internal structured Distiller/Cartographer generation
+        # allowance.  The final PEEK map budget is enforced separately by the
+        # pinned CachePolicy token counter.
+        self.max_new_tokens = int(internal_max_new_tokens if internal_max_new_tokens is not None
+                                  else max_new_tokens)
+        self.retry_max_new_tokens = int(
+            retry_max_new_tokens if retry_max_new_tokens is not None
+            else max(self.max_new_tokens * 2, 1024))
+        if self.max_new_tokens < 1 or self.retry_max_new_tokens < self.max_new_tokens:
+            raise ValueError("PEEK internal generation budgets are invalid")
+        self.retries = int(retries)
+        if self.retries < 0:
+            raise ValueError("PEEK retries must be non-negative")
         self._usage = None
+        self._attempt = 0
         self.stats = {"model_calls": 0, "input_tokens": 0, "output_tokens": 0,
                       "latency_seconds": 0.0, "malformed_outputs": 0,
                       "retry_calls": 0, "failed_outputs": 0, "malformed_examples": [],
+                      "internal_generation_budgets": [],
                       "distiller": {"calls": 0, "malformed": 0, "retries": 0, "failures": 0},
                       "cartographer": {"calls": 0, "malformed": 0, "retries": 0, "failures": 0}}
 
@@ -92,7 +107,9 @@ class QwenPeekClient:
         if hasattr(ids, "keys"): ids = ids["input_ids"]
         ids = ids.to(self.model.device); started = time.perf_counter()
         with torch.inference_mode():
-            output = self.model.generate(ids, max_new_tokens=self.max_new_tokens, do_sample=False,
+            allowance = self.max_new_tokens if self._attempt == 0 else self.retry_max_new_tokens
+            self.stats["internal_generation_budgets"].append(allowance)
+            output = self.model.generate(ids, max_new_tokens=allowance, do_sample=False,
                                          pad_token_id=self.tokenizer.eos_token_id)
         elapsed = time.perf_counter() - started
         generated = output[0, ids.shape[1]:]
@@ -107,6 +124,7 @@ class QwenPeekClient:
         self.stats[stage]["calls"] += 1
         current = list(messages)
         for attempt in range(self.retries + 1):
+            self._attempt = attempt
             raw = self._once(current)
             valid, error = self._valid(stage, extract_json(raw))
             if valid: return raw
@@ -185,8 +203,9 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
     try:
         for source in sorted(by_source):
             replay.add_source(source, by_source[source])
-            current_slots = batch_size if len(replay.bank) == 1 else batch_size - batch_size // 2
-            shard_steps = max(updates_per_source, math.ceil(len(by_source[source]) / current_slots))
+            shard_steps = matched_shard_steps(
+                len(by_source[source]), batch_size, updates_per_source,
+                has_previous_sources=bool(replay.bank))
             for step in range(shard_steps):
                 batch = replay.batch(source, batch_size, step)
                 result = policy.update(trajectory=trajectory_from_records(batch.records),
@@ -219,13 +238,20 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
         failed_stats["malformed_output_rate"] = failed_stats.get("malformed_outputs", 0) / calls
         failed_stats["retry_rate"] = failed_stats.get("retry_calls", 0) / calls
         failed_stats["failure_rate_per_update"] = failed_stats.get("failed_outputs", 0) / max(1, update_count * 2)
-        failed = {"artifact_schema_version": 1, "status": "failed", "phase": "study_failed",
+        failed = {"artifact_schema_version": 2, "status": "failed", "phase": "study_failed",
                   "evaluation_inputs_seen": False, "protocol": "offline_peek_map",
                   "provenance": artifact_provenance or {}, "token_budget": token_budget,
                   "token_counter": counter_name, "completed_updates": update_count,
                   "failure": f"{type(exc).__name__}: {exc}",
                   "client_statistics": failed_stats,
                   "study_elapsed_seconds": time.perf_counter() - started,
+                  "study_total_latency_seconds": failed_stats.get("latency_seconds"),
+                  "study_prefill_latency_seconds": None,
+                  "study_decode_latency_seconds": None,
+                  "study_metric_unavailable": {
+                      "prefill_latency_seconds": "PEEK backend reports one generate call latency, not a separate prefill phase",
+                      "decode_latency_seconds": "PEEK backend reports one generate call latency, not a separate decode phase",
+                  },
                   "study_input_tokens": failed_stats.get("input_tokens", usage_in),
                   "study_output_tokens": failed_stats.get("output_tokens", usage_out),
                   "study_peak_memory_bytes": peak_memory,
@@ -241,8 +267,13 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
         raise RuntimeError(f"PEEK study failed; diagnostics written to {output}") from exc
     policy.save(output); payload = json.loads(output.read_text(encoding="utf-8"))
     map_text = policy.current_map_text
-    payload.update({"phase": "frozen_before_evaluation", "evaluation_inputs_seen": False,
-                    "artifact_schema_version": 1, "provenance": artifact_provenance or {},
+    contamination = (artifact_provenance or {}).get("contamination_audit", {})
+    attested = (isinstance(contamination, dict) and contamination.get("status") == "pass"
+                and isinstance(contamination.get("artifact_sha256"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", contamination["artifact_sha256"]))
+    payload.update({"phase": "frozen_before_evaluation" if attested else "study_complete_unattested",
+                    "evaluation_inputs_seen": False,
+                    "artifact_schema_version": 2, "provenance": artifact_provenance or {},
                     "protocol": "offline_peek_map", "upstream_policy": True,
                     "upstream_revision": "8b109771b51126284ea337f23827facde1db05ed",
                     "update_count": update_count, "replay_fraction": replay_fraction,
@@ -251,6 +282,13 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
                     "peek_reported_input_tokens_excluding_retries": usage_in,
                     "peek_reported_output_tokens_excluding_retries": usage_out,
                     "study_elapsed_seconds": time.perf_counter() - started,
+                    "study_total_latency_seconds": getattr(client, "stats", {}).get("latency_seconds"),
+                    "study_prefill_latency_seconds": None,
+                    "study_decode_latency_seconds": None,
+                    "study_metric_unavailable": {
+                        "prefill_latency_seconds": "PEEK backend reports one generate call latency, not a separate prefill phase",
+                        "decode_latency_seconds": "PEEK backend reports one generate call latency, not a separate decode phase",
+                    },
                     "client_statistics": getattr(client, "stats", {}), "model": model_provenance or {},
                     "exposure_by_record": replay.ledger.by_record,
                     "exposure_by_source": replay.ledger.by_source,

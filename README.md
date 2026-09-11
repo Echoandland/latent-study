@@ -72,6 +72,16 @@ Generation can be split into independent deterministic workers with `--num-worke
 
 Without `--candidate-model`, the command fails closed unless `--deterministic-smoke` is explicitly given. The latter is only for tests and is labeled in every record. Multi-fact records carry separate required evidence groups. Full visible evidence after normal truncation—not path overlap—drives reward. Semantic and within-document position distances remain disabled.
 
+Before freezing a study artifact, run the separate evaluation-contamination audit. It may read evaluation files, but no study/training command does:
+
+```bash
+latent-study audit-contamination \
+  --study artifacts/study/dspy_records.jsonl \
+  --corpus data/corpus/dspy \
+  --evaluation data/evaluation/studybench \
+  --output artifacts/study/contamination_audit.json
+```
+
 Add `--shuffle-correspondence` to create the compute/coverage-matched prompt–evidence negative control. Query-only and rank-only ablations use `--lambda-rank 0` and `--query-weight 0`, respectively; latent length accepts 16, 64, or 256 (and 2–4 for smoke).
 
 ## Train the latent
@@ -80,7 +90,9 @@ Create the untrained-random L64 control with the same initializer and corpus pro
 
 ```bash
 latent-study init-latent --model Qwen/Qwen3.5-9B --length 64 --seed 17 \
+  --manifest artifacts/audit/dspy_manifest.json \
   --corpus-hash <manifest.corpus_hash> \
+  --contamination-audit artifacts/study/contamination_audit.json \
   --output artifacts/checkpoints/dspy_random_L64.pt
 ```
 
@@ -88,6 +100,7 @@ latent-study init-latent --model Qwen/Qwen3.5-9B --length 64 --seed 17 \
 CUDA_VISIBLE_DEVICES=0 latent-study train-latent \
   --manifest artifacts/audit/dspy_manifest.json \
   --records artifacts/study/dspy_records.jsonl \
+  --contamination-audit artifacts/study/contamination_audit.json \
   --model Qwen/Qwen3.5-9B \
   --model-revision c202236235762e1c871ad0ccb60c8ee5ba337b9a \
   --length 64 --dtype bfloat16 --replay 0.5 \
@@ -104,13 +117,17 @@ One shared serializer defines the logical prompt order `system/tool instructions
 These commands invoke upstream `peek.CachePolicy`; local code only converts the same corpus records into PEEK trajectories and freezes the resulting map. The Qwen tokenizer enforces the map budget.
 
 ```bash
-latent-study peek-study --records artifacts/study/dspy_records.jsonl \
+latent-study peek-study --manifest artifacts/audit/dspy_manifest.json \
+  --records artifacts/study/dspy_records.jsonl \
+  --contamination-audit artifacts/study/contamination_audit.json \
   --output artifacts/study/offline_peek_64.json --token-budget 64 \
-  --tokenizer Qwen/Qwen3.5-9B --replay 0.5
+  --model Qwen/Qwen3.5-9B --internal-max-new-tokens 1024 --replay 0.5
 
-latent-study peek-study --records artifacts/study/dspy_records.jsonl \
+latent-study peek-study --manifest artifacts/audit/dspy_manifest.json \
+  --records artifacts/study/dspy_records.jsonl \
+  --contamination-audit artifacts/study/contamination_audit.json \
   --output artifacts/study/offline_peek_1024.json --token-budget 1024 \
-  --tokenizer Qwen/Qwen3.5-9B --replay 0.5
+  --model Qwen/Qwen3.5-9B --internal-max-new-tokens 1024 --replay 0.5
 ```
 
 The 64-token condition starts from PEEK's valid section syntax without its explanatory initial filler, because the stock template alone exceeds 64 tokens. The Distiller/Cartographer/priority Evictor policy remains upstream code. The adapter validates Distiller and Cartographer schemas separately, retries deterministic generations with the exact expected schema, and fails without writing a result if an update fails or the final map is empty, header-only, non-readable, or lacks navigation content.
@@ -118,11 +135,28 @@ The 64-token condition starts from PEEK's valid section syntax without its expla
 ## Replay, evaluation, and tests
 
 ```bash
-latent-study replay-report --records artifacts/study/dspy_records.jsonl \
+latent-study replay-report --manifest artifacts/audit/dspy_manifest.json \
+  --records artifacts/study/dspy_records.jsonl \
   --replay 0.5 --output artifacts/study/replay_50.json
-latent-study replay-report --records artifacts/study/dspy_records.jsonl \
+latent-study replay-report --manifest artifacts/audit/dspy_manifest.json \
+  --records artifacts/study/dspy_records.jsonl \
   --replay 0 --output artifacts/study/replay_0.json
+```
 
+The production `evaluate` command loads a separate frozen JSON/JSONL dataset, validates all five frozen conditions and their exact dependency hashes, and emits per-example compute/scoring records plus expertise-ready performance-vs-compute data. Select `--budget direct`, `--budget max5`, `--budget max20`, or `--budget exact20`; `--judge module:function` injects the evaluation-only strict/lenient scorer. It requires explicit acknowledgement of the currently conservative Qwen `full_recompute_fallback`.
+
+```bash
+latent-study evaluate --manifest artifacts/audit/dspy_manifest.json \
+  --dataset data/evaluation/studybench \
+  --random-latent artifacts/checkpoints/dspy_random_L64.pt \
+  --trained-latent artifacts/checkpoints/dspy_L64.pt \
+  --peek64 artifacts/study/offline_peek_64.json \
+  --peek1024 artifacts/study/offline_peek_1024.json \
+  --budget max5 --judge my_eval:score \
+  --acknowledge-full-recompute-fallback --output artifacts/evaluation/mvp.json
+```
+
+```bash
 latent-study smoke-eval --manifest artifacts/audit/dspy_manifest.json \
   --records artifacts/smoke/study_records.jsonl \
   --output artifacts/smoke/tool_evaluation.json
@@ -146,8 +180,8 @@ Primary downstream conditions are no study, random latent L64, trained latent L6
 
 ## Current repair validation status
 
-The current schema-v1 provenance audit produced 371 decoded text documents, 2,571 non-overlapping semantic units, an estimated 513,596 eligible lexical tokens, 4,567 symbol occurrences, 14,048 syntactic call sites, and 1,733 conservatively verified call relations. It reports 90 ambiguous, 2,953 lexically shadowed, and 9,272 otherwise excluded call sites. These are tokenizer-independent audit estimates; actual model-token exposure must be reported during training.
+The current schema-v2 provenance audit produced 371 decoded text documents, 2,571 non-overlapping semantic units, an estimated 513,596 eligible lexical tokens, 4,567 symbol occurrences, 14,048 syntactic call sites, and 1,733 conservatively verified call relations. It reports 90 ambiguous, 2,953 lexically shadowed, and 9,272 otherwise excluded call sites. These are tokenizer-independent audit estimates; actual model-token exposure must be reported during training.
 
-CPU/mock validation currently collects 32 tests. It covers isolation, provenance rejection, the shared memory boundary, prefix placement, combined production optimization, exact rendered evidence visibility, lexical shadowing, dynamically growing replay, worker invariance/merge, separate PEEK format failures and failed-study diagnostics, all five synthetic root-loop conditions, and the official metric.
+CPU/mock validation currently collects 49 tests. It covers isolation, cryptographic artifact/dependency rejection, live-corpus verification, contamination auditing, strict tool-schema parsing, the shared memory boundary, prefix placement, combined production optimization, exact rendered evidence visibility, lexical shadowing, dynamically growing replay with compute-matched replay=0 control, worker invariance/merge, separate PEEK format failures, final-map budget enforcement, and failed-study diagnostics, five-condition evaluation plumbing/budget checks, all five synthetic root-loop conditions, and the official metric.
 
-All older checked-in record, replay, latent, PEEK, root-agent, and real-Qwen result artifacts predate the current artifact contract and are historical only. Production loaders reject them rather than silently treating them as current. In particular, the historical PEEK-64 map is only `## CONTEXT ROADMAP` (5 actual Qwen tokens), and the historical combined-objective smoke increased from about 1.7529 to 1.9798. The repair host exposed four CUDA GPUs outside the conversation sandbox; bounded Qwen record generation and L=3 pilots ran, while the strengthened smoke and PEEK-64 gates failed closed. See [REPAIR_REPORT.md](docs/REPAIR_REPORT.md) for exact commands and blockers.
+All older checked-in record, replay, latent, PEEK, root-agent, and real-Qwen result artifacts predate the current artifact contract and are historical only. Production loaders reject them rather than silently treating them as current. In particular, the historical PEEK-64 map is only `## CONTEXT ROADMAP` (5 actual Qwen tokens), and the historical combined-objective smoke increased from about 1.7529 to 1.9798. The Round 1 report remains historical; the current infrastructure status is in [REPAIR_ROUND_2_REPORT.md](docs/REPAIR_ROUND_2_REPORT.md).

@@ -20,6 +20,8 @@ REQUIRED_PATHS = (
     "peek.max_new_tokens", "peek.retries", "decoding.do_sample", "decoding.temperature",
     "decoding.max_new_tokens_per_turn", "root_agent.max_tool_calls",
     "root_agent.max_output_tokens", "root_agent.max_observation_bytes",
+    "peek_internal.max_new_tokens", "peek_internal.retry_max_new_tokens",
+    "evaluation.conditions", "evaluation.default_budget", "evaluation.budgets",
 )
 
 

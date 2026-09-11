@@ -1,6 +1,6 @@
 from latent_study.corpus import build_manifest
 from latent_study.records import coverage_report, generate_coverage_records, generate_relation_records
-from latent_study.replay import SourceReplay
+from latent_study.replay import SourceReplay, matched_shard_steps
 
 
 def test_small_coverage_replay_integration(tmp_path):
@@ -25,6 +25,25 @@ def test_small_coverage_replay_integration(tmp_path):
     for source in sorted(by_source): no_replay.add_source(source, by_source[source])
     matched = no_replay.batch(sorted(by_source)[-1], 4, 0)
     assert len(matched.records) == 4 and matched.current_count == 4
+
+    # The replay=0 control keeps the same number of full updates as replay=.5
+    # once a previous source exists; only the source composition changes.
+    schedules = {}
+    for fraction in (0.0, 0.5):
+        replay_control = SourceReplay(seed=2, replay_fraction=fraction)
+        updates = 0
+        for source in sorted(by_source):
+            replay_control.add_source(source, by_source[source])
+            steps = matched_shard_steps(len(by_source[source]), 4, 1,
+                                        has_previous_sources=bool(replay_control.bank) and
+                                        len(replay_control.bank) > 1)
+            for step in range(steps):
+                batch = replay_control.batch(source, 4, step)
+                assert len(batch.records) == 4
+                updates += 1
+        schedules[fraction] = (updates, set(replay_control.current_ledger.by_record))
+    assert schedules[0.0][0] == schedules[0.5][0]
+    assert schedules[0.0][1] == schedules[0.5][1] == {r.record_id for r in records}
 
 
 def test_batch_two_replay_balances_the_real_dynamically_growing_bank(tmp_path):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import statistics
+import math
 from dataclasses import dataclass
 
 from .schema import ExposureLedger, StudyRecord
@@ -12,6 +13,21 @@ class ReplayBatch:
     records: tuple[StudyRecord, ...]
     current_count: int
     previous_count: int
+
+
+def matched_shard_steps(record_count: int, batch_size: int, updates_per_source: int,
+                        *, has_previous_sources: bool) -> int:
+    """Return compute-matched source steps for both replay controls.
+
+    A 50%-replay batch has fewer current-source slots once a previous source
+    exists.  The replay=0 control must still execute the same number of full
+    optimizer updates; its extra current records are therefore deterministic
+    repeats rather than a reduction in update count or batch size.
+    """
+    if record_count < 1 or batch_size < 1 or updates_per_source < 1:
+        raise ValueError("record_count, batch_size, and updates_per_source must be positive")
+    current_slots = batch_size if not has_previous_sources else max(1, batch_size - batch_size // 2)
+    return max(updates_per_source, math.ceil(record_count / current_slots))
 
 
 class SourceReplay:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -183,21 +184,41 @@ class SoftPrefixLM:
              model_revision: str = "", seed: int | None = None,
              provenance: dict | None = None) -> None:
         import torch
+        from .artifacts import artifact_payload_hash
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({"prefix": self.prefix.detach().cpu(), "length": self.length,
-                    "hidden_size": self.hidden_size, "corpus_hash": corpus_hash,
-                    "model_id": model_id, "model_revision": model_revision,
-                    "seed": seed, "phase": "frozen_before_evaluation",
-                    "evaluation_inputs_seen": False, "artifact_schema_version": 1,
-                    "provenance": provenance or {}}, path)
+        metadata = dict(provenance or {})
+        # Direct library fixtures may omit provenance, but production CLI
+        # callers always provide it.  An unattested production checkpoint is
+        # deliberately marked ineligible by the isolation gate.
+        attestation = metadata.get("contamination_audit") or {}
+        attested = (attestation.get("status") == "pass"
+                    and isinstance(attestation.get("artifact_sha256"), str)
+                    and re.fullmatch(r"[0-9a-f]{64}", attestation["artifact_sha256"]))
+        phase = "frozen_before_evaluation" if (provenance is None or attested) else "study_complete_unattested"
+        payload = {"prefix": self.prefix.detach().cpu(), "length": self.length,
+                   "hidden_size": self.hidden_size, "corpus_hash": corpus_hash,
+                   "model_id": model_id, "model_revision": model_revision,
+                   "seed": seed, "phase": phase,
+                   "evaluation_inputs_seen": False, "artifact_schema_version": 2,
+                   "provenance": metadata}
+        if metadata:
+            metadata["artifact_sha256"] = None
+            payload["provenance"] = metadata
+            metadata["artifact_sha256"] = artifact_payload_hash(payload)
+        torch.save(payload, path)
 
     def load(self, path: str | Path, *, expected_corpus_hash: str | None = None,
              expected_model_id: str | None = None,
              expected_model_revision: str | None = None,
+             expected_tokenizer_id: str | None = None,
+             expected_tokenizer_revision: str | None = None,
              expected_phase: str = "frozen_before_evaluation") -> dict:
         import torch
         payload = torch.load(path, map_location=self.prefix.device, weights_only=True)
+        from .artifacts import ARTIFACT_SCHEMA_VERSION
+        if payload.get("artifact_schema_version") != ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("latent checkpoint uses an incompatible artifact schema")
         if payload["prefix"].shape != self.prefix.shape:
             raise ValueError("saved prefix shape does not match model")
         if expected_corpus_hash and payload["corpus_hash"] != expected_corpus_hash:
@@ -210,6 +231,15 @@ class SoftPrefixLM:
             raise ValueError("latent is not a clean pre-evaluation frozen artifact")
         if payload.get("length") != self.length or payload.get("hidden_size") != self.hidden_size:
             raise ValueError("latent length/hidden size is incompatible with the deployment model")
+        metadata = payload.get("provenance")
+        if isinstance(metadata, dict) and isinstance(metadata.get("artifact_sha256"), str):
+            from .artifacts import validate_provenance
+            validate_provenance(metadata, artifact_path=path,
+                                artifact_type=metadata.get("artifact_type"),
+                                model_id=expected_model_id, model_revision=expected_model_revision,
+                                corpus_hash=expected_corpus_hash,
+                                tokenizer_id=expected_tokenizer_id,
+                                tokenizer_revision=expected_tokenizer_revision)
         with torch.no_grad():
             self.prefix.copy_(payload["prefix"].to(dtype=self.prefix.dtype))
         return {k: v for k, v in payload.items() if k != "prefix"}

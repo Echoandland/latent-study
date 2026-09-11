@@ -6,33 +6,63 @@ import time
 from dataclasses import dataclass
 
 from .schema import ToolAction
-from .search import TOOL_SCHEMAS, TOOL_SCHEMA_HASH, CodingTools, serialize_tool_observation
+from .search import (TOOL_SCHEMAS, TOOL_SCHEMA_HASH, CodingTools,
+                      ToolActionValidationError, parse_and_validate_tool_action,
+                      serialize_tool_observation)
 
 
 _ACTION_RE = re.compile(r"\{[^{}]*\}", re.DOTALL)
 
 
-def parse_tool_actions(text: str) -> list[ToolAction]:
-    """Parse every legal typed coding-tool JSON object in a multi-turn response."""
-    actions = []
-    for blob in _ACTION_RE.findall(text):
+def _reject_duplicate_keys(pairs):
+    result = {}
+    for key, item in pairs:
+        if key in result:
+            raise ToolActionValidationError(f"duplicate property: {key}")
+        result[key] = item
+    return result
+
+
+def _json_objects(text: str):
+    """Yield decoded JSON objects/errors without allowing malformed output to escape."""
+    decoder = json.JSONDecoder(object_pairs_hook=_reject_duplicate_keys)
+    for index, char in enumerate(text):
+        if char != "{":
+            continue
         try:
-            value = json.loads(blob)
+            value, _ = decoder.raw_decode(text[index:])
         except json.JSONDecodeError:
             continue
-        maximum = value.get("max_results", 5)
-        if not isinstance(maximum, int):
+        except ToolActionValidationError as exc:
+            yield None, str(exc)
             continue
-        tool = value.get("tool")
-        if tool == "grep" and isinstance(value.get("query"), str):
-            actions.append(ToolAction(query=value["query"], max_results=maximum, tool="grep",
-                                      path=value.get("path", ".")))
-        elif tool == "glob" and isinstance(value.get("pattern"), str):
-            actions.append(ToolAction(max_results=maximum, tool="glob", pattern=value["pattern"]))
-        elif (tool == "read_file" and isinstance(value.get("path"), str)
-              and isinstance(value.get("start_line"), int) and isinstance(value.get("end_line"), int)):
-            actions.append(ToolAction(tool="read_file", path=value["path"],
-                                      start_line=value["start_line"], end_line=value["end_line"]))
+        if isinstance(value, dict):
+            yield value, None
+
+
+def parse_tool_actions(text: str, *, return_errors: bool = False):
+    """Parse model output through the authoritative public tool schema.
+
+    The default return type remains a list for compatibility.  Root-agent code
+    asks for ``return_errors=True`` so malformed tool JSON becomes a controlled
+    invalid-action result rather than a Python exception.
+    """
+    actions, errors = [], []
+    if not isinstance(text, str):
+        errors.append("model output must be a string")
+        return (actions, errors) if return_errors else actions
+    for value, error in _json_objects(text):
+        if error:
+            errors.append(error)
+            continue
+        if "tool" not in value:
+            continue  # final-answer JSON is handled separately by the loop
+        try:
+            actions.append(parse_and_validate_tool_action(value))
+        except ToolActionValidationError as exc:
+            errors.append(str(exc))
+    if return_errors:
+        return actions, errors
     return actions
 
 
@@ -130,11 +160,29 @@ def tool_continuation_ids(tokenizer, generated_ids, observation: str):
     return tokenizer(text, add_special_tokens=False, return_tensors="pt").input_ids
 
 
+def forced_continuation_ids(tokenizer, generated_ids, instruction: str):
+    """Serialize a user continuation without inventing a tool observation.
+
+    Exact-iteration evaluation profiles may forbid an early final answer.  In
+    that case the model is given an explicit user turn asking it to continue;
+    this keeps the role protocol honest while preserving one soft-prefix
+    insertion in cached sessions.
+    """
+    im_end = tokenizer.convert_tokens_to_ids("<|im_end|>")
+    ended = bool(generated_ids.shape[1]) and int(generated_ids[0, -1]) == im_end
+    prefix = "\n" if ended else "<|im_end|>\n"
+    text = (prefix + f"<|im_start|>user\n{instruction}<|im_end|>\n"
+            "<|im_start|>assistant\n<think>\n\n</think>\n\n")
+    return tokenizer(text, add_special_tokens=False, return_tensors="pt").input_ids
+
+
 @dataclass(frozen=True)
 class InferenceBudget:
     max_tool_calls: int
     max_output_tokens: int
     max_observation_bytes: int
+    exact_tool_calls: int | None = None
+    allow_early_return: bool = True
 
 
 @dataclass(frozen=True)
@@ -150,6 +198,7 @@ class Condition:
     decoding: dict | None = None
     root_prompt_revision: str = ROOT_PROMPT_REVISION
     allow_full_recompute_fallback: bool = False
+    model_id: str = ""
 
 
 def assert_fair_conditions(conditions: list[Condition]) -> None:
@@ -161,7 +210,8 @@ def assert_fair_conditions(conditions: list[Condition]) -> None:
             raise ValueError("evaluation inference budgets differ across conditions")
         if condition.search_limits != reference.search_limits:
             raise ValueError("evaluation tool limits differ across conditions")
-        for field in ("model_revision", "corpus_hash", "tool_schema_hash", "decoding", "root_prompt_revision"):
+        for field in ("model_id", "model_revision", "corpus_hash", "tool_schema_hash",
+                      "decoding", "root_prompt_revision", "allow_full_recompute_fallback"):
             if getattr(condition, field) != getattr(reference, field):
                 raise ValueError(f"evaluation {field} differs across conditions")
 
@@ -212,15 +262,36 @@ class FrozenRootAgent:
         messages = [{"role": "system", "content": ROOT_SYSTEM_PROMPT},
                     {"role": "user", "content": question}]
         tool_calls, output_tokens, observation_bytes, invalid = 0, 0, 0, 0
+        tool_errors = []
+        prefill_latency = None
+        decode_latency = 0.0
         transcript = list(messages); cached_ids = None; session = None
+        prefill_started = time.perf_counter()
         if self.prefix_lm is not None:
             cached_ids = self.prefix_lm.chat_ids(messages, add_generation_prompt=True)
             session = PrefixAgentSession(self.prefix_lm, cached_ids)
+            prefill_latency = time.perf_counter() - prefill_started
         elif getattr(self.model.config, "model_type", "").startswith("qwen3_5"):
             cached_ids = self._ids(messages)
+        if self.prefix_lm is not None:
+            memory_tokens = int(getattr(self.prefix_lm, "length", 0))
+        elif self.map_text:
+            try:
+                memory_tokens = len(self.tokenizer.encode(self.map_text, add_special_tokens=False))
+            except AttributeError:
+                encoded = self.tokenizer(self.map_text, add_special_tokens=False, return_tensors="pt")
+                memory_tokens = int(encoded["input_ids"].shape[1] if hasattr(encoded, "keys")
+                                   else encoded.input_ids.shape[1])
+        else:
+            memory_tokens = 0
+        # Textual map tokens are already present in serialized IDs.  Soft
+        # prefix length is reported separately as ``memory_tokens`` and is not
+        # added a second time to prompt-token accounting.
+        input_tokens = int(cached_ids.shape[1] if cached_ids is not None else self._ids(messages).shape[1])
         while output_tokens < self.condition.budget.max_output_tokens:
             allowance = min(self.max_new_tokens_per_turn,
                             self.condition.budget.max_output_tokens - output_tokens)
+            decode_started = time.perf_counter()
             if session is not None:
                 generated, session.state = self.prefix_lm.generate_from_state(session.state,
                     max_new_tokens=allowance, temperature=temperature if do_sample else 0.0,
@@ -251,6 +322,7 @@ class FrozenRootAgent:
                             generation.update({"temperature": temperature, "generator": generator})
                         full = self.model.generate(ids, **generation)
                     generated = full[:, ids.shape[1]:]
+            decode_latency += time.perf_counter() - decode_started
             output_tokens += int(generated.shape[1])
             text = self.tokenizer.decode(generated[0], skip_special_tokens=True)
             transcript.append({"role": "assistant", "content": text})
@@ -259,14 +331,49 @@ class FrozenRootAgent:
                               if isinstance(json.loads(blob), dict) and "final" in json.loads(blob)), None)
             except (json.JSONDecodeError, KeyError):
                 final = None
+            exact = self.condition.budget.exact_tool_calls
+            if (final is not None and exact is not None
+                    and not self.condition.budget.allow_early_return and tool_calls < exact):
+                instruction = (f"Continue using typed coding-tool actions until exactly {exact} tool calls "
+                               "have been completed; do not return a final answer yet.")
+                messages.extend([{"role": "assistant", "content": text},
+                                 {"role": "user", "content": instruction}])
+                transcript.append({"role": "user", "content": instruction})
+                if session is not None:
+                    suffix = forced_continuation_ids(self.tokenizer, generated, instruction).to(self.model.device)
+                    session.append_tool_turn(suffix)
+                    cached_ids = torch.cat((cached_ids, generated, suffix), dim=1)
+                elif cached_ids is not None:
+                    suffix = forced_continuation_ids(self.tokenizer, generated, instruction).to(self.model.device)
+                    cached_ids = torch.cat((cached_ids, generated, suffix), dim=1)
+                continue
             if final is not None:
                 return self._result(str(final), transcript, tool_calls, output_tokens,
-                                    observation_bytes, invalid, session, time.perf_counter() - started)
-            actions = parse_tool_actions(text)
-            if not actions or tool_calls >= self.condition.budget.max_tool_calls:
-                invalid += int(not actions)
+                                    observation_bytes, invalid, session, time.perf_counter() - started,
+                                    tool_errors=tool_errors,
+                                    metrics=self._metrics(input_tokens, memory_tokens, prefill_latency,
+                                                          decode_latency, output_tokens))
+            actions, errors = parse_tool_actions(text, return_errors=True)
+            if errors:
+                tool_errors.extend(errors)
+                # Count malformed objects even when a separate valid action is
+                # present in the same model turn; they remain observable
+                # invalid outputs rather than silently disappearing.
+                invalid += 1
+            exact = self.condition.budget.exact_tool_calls
+            exact_limit_reached = (exact is not None
+                                   and not self.condition.budget.allow_early_return
+                                   and tool_calls >= exact)
+            if not actions or tool_calls >= self.condition.budget.max_tool_calls or exact_limit_reached:
+                invalid += int(not actions and not errors)
+                if errors or not actions:
+                    transcript.append({"role": "tool", "content": "ERROR: invalid_action: " +
+                                       "; ".join(errors or ["no valid typed tool action"])})
                 return self._result(text, transcript, tool_calls, output_tokens,
-                                    observation_bytes, invalid, session, time.perf_counter() - started)
+                                    observation_bytes, invalid, session, time.perf_counter() - started,
+                                    tool_errors=tool_errors,
+                                    metrics=self._metrics(input_tokens, memory_tokens, prefill_latency,
+                                                          decode_latency, output_tokens))
             action = actions[0]; valid, _, observation = self.tools.execute(action)
             if not valid: invalid += 1
             remaining = self.condition.budget.max_observation_bytes - observation_bytes
@@ -285,17 +392,43 @@ class FrozenRootAgent:
                                                serialize_tool_observation(action, observation)).to(self.model.device)
                 cached_ids = torch.cat((cached_ids, generated, suffix), dim=1)
         return self._result("", transcript, tool_calls, output_tokens, observation_bytes, invalid,
-                            session, time.perf_counter() - started)
+                            session, time.perf_counter() - started, tool_errors=tool_errors,
+                            metrics=self._metrics(input_tokens, memory_tokens, prefill_latency,
+                                                  decode_latency, output_tokens))
+
+    def _metrics(self, input_tokens, memory_tokens, prefill_latency, decode_latency, output_tokens):
+        import torch
+        peak_memory = None
+        unavailable = {}
+        if prefill_latency is None:
+            unavailable["prefill_latency_seconds"] = (
+                "full-recompute fallback does not expose a separate prompt forward measurement")
+        if torch.cuda.is_available():
+            try:
+                peak_memory = int(torch.cuda.max_memory_allocated(self.model.device))
+            except (AttributeError, RuntimeError):
+                unavailable["peak_memory_bytes"] = "CUDA backend did not expose max_memory_allocated"
+        else:
+            unavailable["peak_memory_bytes"] = "accelerator memory is unavailable on CPU"
+        return {"model_input_tokens": input_tokens, "memory_tokens": memory_tokens,
+                "prefill_latency_seconds": prefill_latency,
+                "decode_latency_seconds": decode_latency,
+                "peak_memory_bytes": peak_memory, "metric_unavailable": unavailable,
+                "model_output_tokens": output_tokens}
 
     @staticmethod
     def _result(answer, transcript, calls, output_tokens, observation_bytes, invalid, session,
-                elapsed_seconds):
+                elapsed_seconds, *, tool_errors=None, metrics=None):
         mode = session.state.cache_mode if session is not None else "full_recompute_fallback"
-        return {"answer": answer, "transcript": transcript, "tool_calls": calls,
+        result = {"answer": answer, "transcript": transcript, "tool_calls": calls,
                 "model_output_tokens": output_tokens, "returned_observation_bytes": observation_bytes,
                 "invalid_actions": invalid,
+                "tool_errors": list(tool_errors or ()),
                 "prefix_insertions": session.state.prefix_insertions if session is not None else 0,
                 "continuation_mode": mode, "cache_correctness_claimed": mode == "native",
                 "inference_latency_seconds": elapsed_seconds,
                 "fallback_scaling": ("full conversation recomputed for each generated token"
                                      if mode == "full_recompute_fallback" else None)}
+        if metrics:
+            result.update(metrics)
+        return result

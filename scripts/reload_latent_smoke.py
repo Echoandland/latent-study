@@ -16,19 +16,22 @@ import torch
 reference = torch.load(args.checkpoint + ".reference.pt", map_location="cpu", weights_only=True)
 payload = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
 wrapper = load_qwen(args.model, length=int(payload["length"]), dtype="bfloat16", revision=args.revision, device=args.device)
-wrapper.load(args.checkpoint, expected_corpus_hash="real-smoke-only")
+wrapper.load(args.checkpoint, expected_corpus_hash="real-smoke-only",
+             expected_phase=payload.get("phase", "study_complete_unattested"))
 actual = wrapper.prefill_ids(reference["input_ids"].to(wrapper.prefix.device), use_cache=False,
                              memory_boundary=reference["memory_boundary"]).next_logits.detach().float().cpu()
 error = float((actual - reference["logits"]).abs().max())
 result = {"fresh_process": True, "max_abs_error": error, "tolerance": args.tolerance,
-          "passed": error <= args.tolerance, "artifact_schema_version": 1,
+          "passed": error <= args.tolerance, "artifact_schema_version": 2,
           "provenance": provenance(artifact_type="latent_reload_report",
                                    resolved_config_hash=canonical_hash(vars(args)),
                                    model_id="Qwen/Qwen3.5-9B",
                                    model_revision=args.revision or "unresolved",
                                    corpus_hash="real-smoke-only", tool_schema_hash=TOOL_SCHEMA_HASH,
                                    command="python scripts/reload_latent_smoke.py",
-                                   cli_overrides=vars(args), repository_root=ROOT)}
+                                   cli_overrides=vars(args), repository_root=ROOT,
+                                   tokenizer_id=args.model,
+                                   tokenizer_revision=args.revision or "unresolved")}
 print(json.dumps(result, indent=2))
 if args.output:
     from latent_study.io import write_json

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 from typing import Iterable
@@ -10,6 +11,10 @@ from .schema import CorpusUnit
 
 _TEXT_EXTENSIONS = {".py", ".md", ".rst", ".txt"}
 _EXCLUDED_DIRS = {".git", ".tox", ".venv", "node_modules", "dist", "build", "__pycache__"}
+
+
+class CorpusIntegrityError(RuntimeError):
+    """Raised when a live corpus no longer matches a frozen manifest."""
 
 
 def _token_estimate(text: str) -> int:
@@ -449,3 +454,40 @@ def build_manifest(root: str | Path) -> dict:
                        "symbols": sum(len(u.symbols) for u in units),
                        "syntactic_relations": relation_audit["syntactic"],
                        "verified_relations": relation_audit["uniquely_verified"]}}
+
+
+def verify_manifest_against_live_corpus(manifest: dict, root: str | Path | None = None) -> dict:
+    """Verify every manifest file and hash against the current filesystem.
+
+    The live index is built with the exact same inclusion/exclusion rules as
+    :func:`build_manifest`, but it is never written back.  A mismatch is a hard
+    error before a model or coding tool is initialized.
+    """
+    expected_root = Path(manifest.get("root", "")).resolve()
+    live_root = Path(root or expected_root).resolve()
+    if live_root != expected_root:
+        raise CorpusIntegrityError(
+            f"live corpus root differs from frozen manifest: {live_root} != {expected_root}")
+    if not live_root.is_dir():
+        raise CorpusIntegrityError(f"frozen corpus root is missing: {live_root}")
+    live = build_manifest(live_root)
+    expected_files = {item["path"]: item["content_hash"] for item in manifest.get("documents", ())}
+    live_files = {item["path"]: item["content_hash"] for item in live.get("documents", ())}
+    modified = sorted(path for path in expected_files.keys() & live_files.keys()
+                      if expected_files[path] != live_files[path])
+    missing = sorted(set(expected_files) - set(live_files))
+    unexpected = sorted(set(live_files) - set(expected_files))
+    expected_excluded = {(item.get("path"), item.get("reason"))
+                         for item in manifest.get("excluded", ())}
+    live_excluded = {(item.get("path"), item.get("reason"))
+                     for item in live.get("excluded", ())}
+    exclusion_drift = sorted(live_excluded ^ expected_excluded)
+    if modified or missing or unexpected or exclusion_drift or live.get("corpus_hash") != manifest.get("corpus_hash"):
+        raise CorpusIntegrityError(json.dumps({
+            "root": str(live_root), "modified_files": modified,
+            "missing_files": missing, "unexpected_eligible_files": unexpected,
+            "exclusion_drift": exclusion_drift,
+            "manifest_corpus_hash": manifest.get("corpus_hash"),
+            "live_corpus_hash": live.get("corpus_hash")}, sort_keys=True))
+    return {"verified": True, "root": str(live_root), "corpus_hash": live["corpus_hash"],
+            "documents": len(live_files), "excluded": len(live_excluded)}

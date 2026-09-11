@@ -153,13 +153,17 @@ def generate_family_records(units: Iterable[CorpusUnit], corpus_hash: str, *, se
         else:
             wrong = negative.definitions[0]
             if wrong == unit.name: continue
-            prompt = ("Correct the single mistaken identifier in this corpus-navigation claim using the "
-                      f"visible declaration: `{unit.source_path}:{span.start_line}` declares `{wrong}`.")
+            prompt = ("A corpus-navigation claim mistakenly says the declaration at "
+                      f"`{unit.source_path}:{span.start_line}` is `{wrong}`. Correct that single identifier "
+                      "using the visible declaration and keep the answer grounded in the corpus.")
             family, template, validator = "misconception_correction", "single-name-misconception-v1", "single_verified_name_substitution"
         out.append(_record(unit, family, prompt, group, negative, corpus_hash, seed + index, template,
                            search, n_actions, validation={"method": validator, "evidence_exposeable": True,
                                                          "generator": "deterministic_evidence_first",
-                                                         "modified_fact_count": 1 if family == "misconception_correction" else 0}))
+                                                         "modified_fact_count": 1 if family == "misconception_correction" else 0,
+                                                         **({"incorrect_symbol": wrong,
+                                                             "correct_symbol": unit.name}
+                                                            if family == "misconception_correction" else {})}))
     return out
 
 
@@ -200,6 +204,12 @@ def generate_relation_records(manifest_or_units, corpus_hash: str, *, seed: int 
                 prompt = f"Continue from the observed caller evidence and navigate to `{relation['callee_symbol']}`."
             actions = _actions(callee, callee_span, negative, n_actions)
             outcomes = _outcomes(actions, search, groups, previsible)
+            if not any(set(group.group_id for group in groups)
+                       <= set(outcome.visible_group_ids) for outcome in outcomes):
+                # A relation record is only eligible when its modeled second
+                # hop can actually expose every required group after the real
+                # tool renderer/truncation.
+                continue
             template = f"verified-call-{family}-v2"
             records.append(StudyRecord(
                 record_id=f"rec_{canonical_hash({'relation': relation['relation_id'], 'template': template, 'seed': seed})[:20]}",

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-import math
 import time
 import hashlib
 from pathlib import Path
 
 from .objectives import query_pairwise_loss, ranking_loss, select_preference
-from .replay import SourceReplay
+from .replay import SourceReplay, matched_shard_steps
 from .agent import ranking_state_messages, study_state_messages
 from .rewards import score_action
 from .schema import EvidenceGroup, EvidenceSpan, StudyRecord, ToolAction
@@ -54,8 +53,9 @@ def train(prefix_lm, records, units_by_id, output_path, *, corpus_hash: str, mod
         current_losses, previous_losses = [], []
         # Use the 50%-replay schedule for both interventions. replay=0 fills
         # those matched slots with current records instead of reducing updates.
-        current_slots = batch_size if len(replay.bank) == 1 else batch_size - batch_size // 2
-        shard_steps = max(updates_per_source, math.ceil(len(by_source[source]) / current_slots))
+        shard_steps = matched_shard_steps(
+            len(by_source[source]), batch_size, updates_per_source,
+            has_previous_sources=bool(replay.bank))
         for step in range(shard_steps):
             batch = replay.batch(source, batch_size, step)
             optimizer.zero_grad(set_to_none=True)

@@ -1,4 +1,6 @@
-# Repair report — 2026-09-11 UTC
+# Repair report — 2026-09-11 UTC (Repair Round 1, historical)
+
+> Superseded by [REPAIR_ROUND_2_REPORT.md](REPAIR_ROUND_2_REPORT.md). The schema-v1/source hashes and GPU results below are retained as historical evidence only; current readers enforce the Round 2 schema-v2 contract.
 
 ## Outcome
 

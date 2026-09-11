@@ -30,12 +30,20 @@
     "steps_per_source": 2, "batch_size": 2,
     "gradient_accumulation_steps": 1},
   "peek": {"max_new_tokens": 384, "retries": 2},
+  "peek_internal": {"max_new_tokens": 1024, "retry_max_new_tokens": 1536},
   "decoding": {"do_sample": false, "temperature": 0.0, "max_new_tokens_per_turn": 128},
   "root_agent": {"prompt_revision": "local-coding-agent-v2", "max_tool_calls": 5,
     "max_output_tokens": 1000, "max_observation_bytes": 6000},
   "evaluation": {
     "conditions": ["no_study", "random_latent_L64", "trained_latent_L64", "offline_peek_64", "offline_peek_1024"],
     "memory_frozen": true,
-    "same_tools_and_budgets": true
+    "same_tools_and_budgets": true,
+    "default_budget": "max5",
+    "budgets": {
+      "direct": {"max_tool_calls": 0, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
+      "max5": {"max_tool_calls": 5, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
+      "max20": {"max_tool_calls": 20, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
+      "exact20": {"max_tool_calls": 20, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": 20, "allow_early_return": false}
+    }
   }
 }
