@@ -229,6 +229,18 @@ class PrefixAgentSession:
             raise RuntimeError("soft prefix was duplicated across a tool turn")
 
 
+def reset_cuda_peak_memory_for_run(model) -> str | None:
+    """Reset accelerator peak statistics at the start of one measured run."""
+    import torch
+    if not torch.cuda.is_available():
+        return "accelerator memory is unavailable on CPU"
+    try:
+        torch.cuda.reset_peak_memory_stats(model.device)
+        return None
+    except (AttributeError, RuntimeError, ValueError) as exc:
+        return f"CUDA backend could not reset per-run peak statistics: {exc}"
+
+
 class FrozenRootAgent:
     """Minimal fixed-budget root loop shared by all memory conditions."""
 
@@ -237,6 +249,7 @@ class FrozenRootAgent:
         self.model, self.tokenizer, self.tools, self.condition = model, tokenizer, tools, condition
         self.prefix_lm, self.map_text = prefix_lm, map_text
         self.max_new_tokens_per_turn = max_new_tokens_per_turn
+        self._peak_memory_reset_error = None
         if condition.memory_kind == "latent" and prefix_lm is None:
             raise ValueError("latent condition requires prefix_lm")
         if condition.memory_kind == "map" and not map_text:
@@ -251,6 +264,7 @@ class FrozenRootAgent:
 
     def run(self, question: str) -> dict:
         import torch
+        self._peak_memory_reset_error = reset_cuda_peak_memory_for_run(self.model)
         started = time.perf_counter()
         decoding = self.condition.decoding or {}
         do_sample = bool(decoding.get("do_sample", False))
@@ -403,17 +417,20 @@ class FrozenRootAgent:
         if prefill_latency is None:
             unavailable["prefill_latency_seconds"] = (
                 "full-recompute fallback does not expose a separate prompt forward measurement")
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and self._peak_memory_reset_error is None:
             try:
                 peak_memory = int(torch.cuda.max_memory_allocated(self.model.device))
             except (AttributeError, RuntimeError):
                 unavailable["peak_memory_bytes"] = "CUDA backend did not expose max_memory_allocated"
         else:
-            unavailable["peak_memory_bytes"] = "accelerator memory is unavailable on CPU"
+            unavailable["peak_memory_bytes"] = (self._peak_memory_reset_error
+                                                  or "accelerator memory is unavailable on CPU")
         return {"model_input_tokens": input_tokens, "memory_tokens": memory_tokens,
                 "prefill_latency_seconds": prefill_latency,
                 "decode_latency_seconds": decode_latency,
-                "peak_memory_bytes": peak_memory, "metric_unavailable": unavailable,
+                "peak_memory_bytes": peak_memory,
+                "peak_memory_scope": "per example run after reset, including the live backbone",
+                "metric_unavailable": unavailable,
                 "model_output_tokens": output_tokens}
 
     @staticmethod

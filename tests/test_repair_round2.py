@@ -26,7 +26,8 @@ from latent_study.artifacts import source_tree_hash
 
 
 def _metadata(kind="study_record_bank"):
-    return provenance(artifact_type=kind, resolved_config_hash="cfg", model_id="m",
+    return provenance(artifact_type=kind, resolved_config_hash="cfg",
+                      protocol_config_hash="a" * 64, model_id="m",
                       model_revision="r", corpus_hash="c", tool_schema_hash=TOOL_SCHEMA_HASH,
                       command="test", cli_overrides={})
 
@@ -113,11 +114,12 @@ def test_contamination_audit_clean_id_and_question_collision(tmp_path):
     from latent_study.cli import _read_contamination_audit
     from latent_study.io import write_json
     audit_path = tmp_path / "audit.json"
-    audit_payload = {"artifact_schema_version": 2, "status": "pass",
+    audit_payload = {"artifact_schema_version": 3, "status": "pass",
                      "phase": "audit_complete", "evaluation_inputs_seen": True,
                      "provenance": provenance(
                          artifact_type="evaluation_contamination_audit",
-                         resolved_config_hash="cfg", model_id="m", model_revision="r",
+                         resolved_config_hash="cfg", protocol_config_hash="a" * 64,
+                         model_id="m", model_revision="r",
                          corpus_hash="audit-only", tool_schema_hash=TOOL_SCHEMA_HASH,
                          command="latent-study audit-contamination", cli_overrides={},
                          dependencies=[("evaluation", evaluation)])}
@@ -127,13 +129,14 @@ def test_contamination_audit_clean_id_and_question_collision(tmp_path):
 
 
 def test_frozen_payload_requires_passing_contamination_attestation():
-    base = {"artifact_schema_version": 2, "phase": "frozen_before_evaluation",
+    base = {"artifact_schema_version": 3, "phase": "frozen_before_evaluation",
             "evaluation_inputs_seen": False,
             "provenance": {"artifact_sha256": "a" * 64}}
     with pytest.raises(IsolationError):
         assert_frozen_payload(base)
-    assert assert_frozen_payload({**base, "contamination_audit": {"status": "pass",
-                                                                      "artifact_sha256": "b" * 64}})["phase"]
+    assert assert_frozen_payload({**base, "contamination_audit": {
+        "status": "pass", "artifact_sha256": "b" * 64,
+        "evaluation_dataset_sha256": "c" * 64}})["phase"]
 
 
 def test_source_tree_hash_is_cwd_independent(tmp_path):

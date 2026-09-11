@@ -53,7 +53,9 @@ def assert_frozen_payload(payload: dict) -> dict:
     audit = payload.get("contamination_audit") or payload.get("provenance", {}).get("contamination_audit")
     if (not isinstance(audit, dict) or audit.get("status") != "pass"
             or not isinstance(audit.get("artifact_sha256"), str)
-            or not re.fullmatch(r"[0-9a-f]{64}", audit["artifact_sha256"])):
+            or not re.fullmatch(r"[0-9a-f]{64}", audit["artifact_sha256"])
+            or not isinstance(audit.get("evaluation_dataset_sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", audit["evaluation_dataset_sha256"])):
         raise IsolationError("frozen artifact lacks a passing evaluation-contamination audit")
     metadata = payload.get("provenance")
     if (not isinstance(metadata, dict) or not isinstance(metadata.get("artifact_sha256"), str)
@@ -76,7 +78,8 @@ def validate_study_bank(records, corpus_hash: str) -> None:
 
 
 _SKIP_KEYS = {"provenance", "dependencies", "artifact_sha256", "source_tree_hash",
-              "corpus_hash", "resolved_config_hash", "tool_schema_hash"}
+              "corpus_hash", "resolved_config_hash", "protocol_config_hash",
+              "tool_schema_hash", "evaluation_dataset_snapshot"}
 _CONTENT_KEYS = {"question", "prompt", "answer", "rubric", "content", "response",
                  "reference", "gold", "trajectory"}
 
@@ -151,6 +154,9 @@ def audit_evaluation_contamination(study_paths, evaluation_paths, *, corpus_path
     not receive evaluation rows; it only consumes the resulting pass attestation
     when an artifact is later frozen.
     """
+    study_paths = list(study_paths)
+    evaluation_paths = list(evaluation_paths)
+    corpus_paths = list(corpus_paths)
     study_items = []
     for path in study_paths:
         study_items.extend(_read_material(Path(path).resolve()))
@@ -193,11 +199,58 @@ def audit_evaluation_contamination(study_paths, evaluation_paths, *, corpus_path
             collisions.append({"type": collision_type, "study_location": item["location"],
                                "evaluation_location": evaluation.get("location"),
                                "evaluation_fingerprint": _fingerprint(evaluation.get("value", ""))})
+    from .evaluation import evaluation_dataset_snapshot
     return {"status": "pass" if not collisions else "fail", "collision_count": len(collisions),
-            "collisions": collisions, "algorithm": "normalized_exact_and_six_token_fingerprints"}
+            "collisions": collisions, "algorithm": "normalized_exact_and_six_token_fingerprints",
+            "evaluation_dataset_snapshot": evaluation_dataset_snapshot(evaluation_paths)}
 
 
 def assert_contamination_free(audit: dict) -> dict:
     if not isinstance(audit, dict) or audit.get("status") != "pass":
         raise IsolationError("evaluation-contamination audit failed")
+    return audit
+
+
+def contamination_attestation(audit: dict) -> dict:
+    """Minimal immutable attestation carried by a frozen memory artifact."""
+    assert_contamination_free(audit)
+    digest = audit.get("provenance", {}).get("artifact_sha256")
+    dataset_digest = audit.get("evaluation_dataset_snapshot", {}).get("sha256")
+    if (not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+            or not isinstance(dataset_digest, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", dataset_digest)):
+        raise IsolationError("contamination audit lacks a cryptographic dataset binding")
+    return {"status": "pass", "artifact_sha256": digest,
+            "evaluation_dataset_sha256": dataset_digest}
+
+
+def verify_memory_contamination_binding(payload: dict, artifact_path: str | Path, *,
+                                        evaluation_dataset_sha256: str,
+                                        protocol_config_hash: str) -> dict:
+    """Resolve and verify memory -> audit -> current evaluation snapshot."""
+    from .artifacts import (resolve_dependency_path, validate_json_artifact)
+    assert_frozen_payload(payload)
+    metadata = payload.get("provenance", {})
+    dependencies = [item for item in metadata.get("dependencies", ())
+                    if item.get("name") == "contamination_audit"]
+    if len(dependencies) != 1:
+        raise IsolationError("memory artifact must identify exactly one contamination audit")
+    audit_path = resolve_dependency_path(dependencies[0], artifact_path=artifact_path)
+    try:
+        audit = validate_json_artifact(
+            audit_path, artifact_type="evaluation_contamination_audit",
+            protocol_config_hash=protocol_config_hash)
+    except Exception as exc:
+        raise IsolationError(f"contamination audit dependency is invalid: {exc}") from exc
+    assert_contamination_free(audit)
+    audit_digest = audit.get("provenance", {}).get("artifact_sha256")
+    audit_dataset = audit.get("evaluation_dataset_snapshot", {}).get("sha256")
+    attestation = payload.get("contamination_audit") or metadata.get("contamination_audit")
+    if audit_digest != dependencies[0].get("artifact_sha256"):
+        raise IsolationError("memory contamination-audit dependency digest mismatch")
+    if not isinstance(attestation, dict) or attestation.get("artifact_sha256") != audit_digest:
+        raise IsolationError("memory contamination attestation does not identify its audit")
+    if (audit_dataset != evaluation_dataset_sha256
+            or attestation.get("evaluation_dataset_sha256") != evaluation_dataset_sha256):
+        raise IsolationError("memory was audited against a different evaluation dataset snapshot")
     return audit

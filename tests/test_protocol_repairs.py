@@ -76,6 +76,7 @@ def test_artifact_schema_rejects_legacy_and_source_stale(tmp_path):
     with pytest.raises(ArtifactCompatibilityError, match="no provenance sidecar"):
         read_sidecar(legacy)
     metadata = provenance(artifact_type="study_record_bank", resolved_config_hash="cfg",
+                          protocol_config_hash="a" * 64,
                           model_id="m", model_revision="r", corpus_hash="c",
                           tool_schema_hash=TOOL_SCHEMA_HASH, command="test", cli_overrides={})
     write_sidecar(legacy, metadata)
@@ -100,6 +101,7 @@ def test_worker_merge_validates_shards_duplicates_and_order(tmp_path):
         path = tmp_path / f"worker-{worker}.jsonl"
         path.write_text(json.dumps({"record_id": record_id}) + "\n")
         meta = provenance(artifact_type="study_record_bank", resolved_config_hash="same",
+                          protocol_config_hash="a" * 64,
                           model_id="m", model_revision="r", corpus_hash="c",
                           tool_schema_hash=TOOL_SCHEMA_HASH, command="generate", cli_overrides={})
         meta["shard"] = {"num_workers": 2, "worker_index": worker}

@@ -411,11 +411,10 @@ def _resolve_python_relations(root: Path, units: list[CorpusUnit]) -> tuple[list
     return sorted(accepted, key=lambda x: x["relation_id"]), counts
 
 
-def build_manifest(root: str | Path) -> dict:
-    root = Path(root).resolve()
-    documents, units, excluded = [], [], []
-    paths = sorted(p for p in root.rglob("*") if p.is_file())
-    for path in paths:
+def _scan_corpus_files(root: Path):
+    """Apply the one authoritative corpus eligibility/normalization policy."""
+    eligible, excluded = [], []
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
         relative = path.relative_to(root).as_posix()
         if any(part in _EXCLUDED_DIRS for part in path.relative_to(root).parts):
             continue
@@ -428,7 +427,35 @@ def build_manifest(root: str | Path) -> dict:
         except UnicodeDecodeError:
             excluded.append({"path": relative, "reason": "non_utf8"})
             continue
-        digest = sha256_bytes(raw)
+        eligible.append({"path": path, "relative": relative, "raw": raw, "text": text,
+                         "content_hash": sha256_bytes(raw)})
+    return eligible, excluded
+
+
+def canonical_corpus_snapshot(root: str | Path) -> list[dict[str, str]]:
+    """Return the semantic closed-snapshot identity used everywhere.
+
+    Only eligible UTF-8 protocol files contribute.  VCS metadata, virtual
+    environments, caches, unsupported extensions, and non-UTF-8 files are
+    intentionally outside the corpus identity.
+    """
+    root = Path(root).resolve()
+    eligible, _ = _scan_corpus_files(root)
+    return [{"path": item["relative"], "content_hash": item["content_hash"]}
+            for item in eligible]
+
+
+def corpus_snapshot_hash(root: str | Path) -> str:
+    return canonical_hash(canonical_corpus_snapshot(root))
+
+
+def build_manifest(root: str | Path) -> dict:
+    root = Path(root).resolve()
+    documents, units = [], []
+    eligible, excluded = _scan_corpus_files(root)
+    for item in eligible:
+        path, relative, text, digest = (item["path"], item["relative"],
+                                        item["text"], item["content_hash"])
         document_id = _document_id(relative, digest)
         file_units = (_python_units(path, relative, text, document_id, digest) if path.suffix == ".py"
                       else _prose_units(relative, text, document_id, digest))
@@ -445,7 +472,8 @@ def build_manifest(root: str | Path) -> dict:
                           "eligible_tokens": sum(u.eligible_tokens for u in file_units), "unit_count": len(file_units)})
         units.extend(file_units)
     verified_relations, relation_audit = _resolve_python_relations(root, units)
-    corpus_hash = canonical_hash([{"path": d["path"], "content_hash": d["content_hash"]} for d in documents])
+    corpus_hash = canonical_hash(
+        [{"path": d["path"], "content_hash": d["content_hash"]} for d in documents])
     return {"schema_version": 2, "root": str(root), "corpus_hash": corpus_hash,
             "documents": documents, "units": units, "excluded": excluded,
             "verified_relations": verified_relations, "relation_audit": relation_audit,
@@ -477,16 +505,12 @@ def verify_manifest_against_live_corpus(manifest: dict, root: str | Path | None 
                       if expected_files[path] != live_files[path])
     missing = sorted(set(expected_files) - set(live_files))
     unexpected = sorted(set(live_files) - set(expected_files))
-    expected_excluded = {(item.get("path"), item.get("reason"))
-                         for item in manifest.get("excluded", ())}
     live_excluded = {(item.get("path"), item.get("reason"))
                      for item in live.get("excluded", ())}
-    exclusion_drift = sorted(live_excluded ^ expected_excluded)
-    if modified or missing or unexpected or exclusion_drift or live.get("corpus_hash") != manifest.get("corpus_hash"):
+    if modified or missing or unexpected or live.get("corpus_hash") != manifest.get("corpus_hash"):
         raise CorpusIntegrityError(json.dumps({
             "root": str(live_root), "modified_files": modified,
             "missing_files": missing, "unexpected_eligible_files": unexpected,
-            "exclusion_drift": exclusion_drift,
             "manifest_corpus_hash": manifest.get("corpus_hash"),
             "live_corpus_hash": live.get("corpus_hash")}, sort_keys=True))
     return {"verified": True, "root": str(live_root), "corpus_hash": live["corpus_hash"],

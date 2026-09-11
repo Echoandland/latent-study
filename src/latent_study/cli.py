@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from .artifacts import ARTIFACT_SCHEMA_VERSION
 from .corpus import build_manifest
 from .io import canonical_hash, write_json, write_jsonl
 from .records import (coverage_report, generate_coverage_records,
@@ -24,6 +25,7 @@ def _read_manifest(path, *, require_current: bool = False, config: dict | None =
                             artifact_path=path,
                             model_id=config["model"]["id"] if config else None,
                             model_revision=config["model"]["revision"] if config else None,
+                            protocol_config_hash=(config.get("protocol_config_hash") if config else None),
                             corpus_hash=raw.get("corpus_hash"), tool_schema_hash=TOOL_SCHEMA_HASH)
     raw["units"] = [unit_from_dict(u) for u in raw["units"]]
     return raw
@@ -37,6 +39,7 @@ def _read_records(path, *, require_current: bool = False, config: dict | None = 
         read_sidecar(path, artifact_type="study_record_bank",
                      model_id=config["model"]["id"] if config else None,
                      model_revision=config["model"]["revision"] if config else None,
+                     protocol_config_hash=(config.get("protocol_config_hash") if config else None),
                      corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH)
     return [record_from_dict(json.loads(line)) for line in Path(path).read_text(encoding="utf-8").splitlines() if line]
 
@@ -51,28 +54,35 @@ def _config(args, artifact):
     overrides = {key: value for key, value in vars(args).items()
                  if key not in ignored and value is not None}
     base = copy.deepcopy(config)
-    base.pop("config_hash", None); base.pop("config_source", None)
+    for derived in ("config_hash", "config_source", "resolved_config_hash",
+                    "protocol_config_hash", "command_config_hash", "cli_overrides"):
+        base.pop(derived, None)
     config["cli_overrides"] = overrides
-    config["config_hash"] = canonical_hash({"config": base, "cli_overrides": overrides})
+    config["resolved_config_hash"] = canonical_hash({"config": base, "cli_overrides": overrides})
+    config["command_config_hash"] = config["resolved_config_hash"]
+    config["config_hash"] = config["resolved_config_hash"]
     save_resolved(config, artifact)
     return config
 
 
 def _provenance(config, args, artifact_type: str, corpus_hash: str, *,
                 dependencies=(), tokenizer_id=None, tokenizer_revision=None,
-                contamination_audit=None, model_id=None) -> dict:
+                contamination_audit=None, model_id=None, artifact_path=None) -> dict:
     from .artifacts import provenance
     from .search import TOOL_SCHEMA_HASH
     revision = (getattr(args, "model_revision", None)
                 or getattr(args, "candidate_revision", None)
                 or config["model"]["revision"])
-    metadata = provenance(artifact_type=artifact_type, resolved_config_hash=config["config_hash"],
-                      model_id=model_id or getattr(args, "model", None) or config["model"]["id"],
+    metadata = provenance(artifact_type=artifact_type,
+                      resolved_config_hash=config["resolved_config_hash"],
+                      protocol_config_hash=config["protocol_config_hash"],
+                      model_id=model_id or config["model"]["id"],
                       model_revision=revision,
                       corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH,
                       command="latent-study " + getattr(args, "command", artifact_type),
                       cli_overrides=config.get("cli_overrides", {}), dependencies=dependencies,
-                      tokenizer_id=tokenizer_id, tokenizer_revision=tokenizer_revision)
+                      tokenizer_id=tokenizer_id, tokenizer_revision=tokenizer_revision,
+                      artifact_path=artifact_path or getattr(args, "output", None))
     if contamination_audit is not None:
         metadata["contamination_audit"] = dict(contamination_audit)
     return metadata
@@ -83,7 +93,7 @@ def _verify_live_manifest(manifest: dict):
     return verify_manifest_against_live_corpus(manifest)
 
 
-def _read_contamination_audit(path: str | Path) -> dict:
+def _read_contamination_audit(path: str | Path, *, config: dict | None = None) -> dict:
     from .artifacts import validate_json_artifact
     from .isolation import assert_contamination_free
     # The evaluation-aware audit command is the only phase allowed to open
@@ -91,16 +101,21 @@ def _read_contamination_audit(path: str | Path) -> dict:
     # artifact and its study/corpus inputs, but must not re-read evaluation
     # files through dependency hashing.
     payload = validate_json_artifact(path, artifact_type="evaluation_contamination_audit",
+                                     protocol_config_hash=(config.get("protocol_config_hash")
+                                                           if config else None),
                                      skip_dependency_names={"evaluation"})
     return assert_contamination_free(payload)
 
 
 def _assert_audit_covers(audit: dict, paths) -> None:
     """Ensure a pass attestation was computed over the exact study inputs."""
-    expected = {str(Path(path).resolve()) for path in paths if path}
-    actual = {str(Path(item.get("path", "")).resolve())
+    from .artifacts import artifact_content_hash
+    from .corpus import corpus_snapshot_hash
+    actual = {item.get("artifact_sha256")
               for item in audit.get("provenance", {}).get("dependencies", [])
               if item.get("name") in {"study", "corpus", "study_record_bank", "corpus_snapshot"}}
+    expected = {corpus_snapshot_hash(path) if Path(path).is_dir() else artifact_content_hash(path)
+                for path in paths if path}
     missing = sorted(expected - actual)
     if missing:
         raise RuntimeError("contamination audit does not cover the exact study inputs: " + ", ".join(missing))
@@ -141,7 +156,7 @@ def command_audit(args):
         raise IsolationError("corpus is outside every configured authorized root")
     started = time.perf_counter()
     manifest = build_manifest(args.corpus)
-    manifest["artifact_schema_version"] = 2
+    manifest["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION
     manifest["provenance"] = _provenance(
         config, args, "corpus_manifest", manifest["corpus_hash"],
         dependencies=[("corpus_snapshot", args.corpus)])
@@ -164,7 +179,7 @@ def command_audit_contamination(args):
     if any(not path.exists() for path in (*study, *evaluation, *corpus)):
         raise SystemExit("audit-contamination input path does not exist")
     result = audit_evaluation_contamination(study, evaluation, corpus_paths=corpus)
-    result.update({"artifact_schema_version": 2, "phase": "audit_complete",
+    result.update({"artifact_schema_version": ARTIFACT_SCHEMA_VERSION, "phase": "audit_complete",
                    "evaluation_inputs_seen": True})
     result["provenance"] = _provenance(
         config, args, "evaluation_contamination_audit", "audit_only",
@@ -192,7 +207,7 @@ def command_records(args):
     from .search import CodingTools, SearchLimits, TOOL_SCHEMA_HASH
     seed = _pick(args.seed, config, "seed"); actions = _pick(args.actions, config, "candidate_generation", "n")
     candidate_revision = args.candidate_revision or config["model"]["revision"]
-    candidate_tokenizer_id = args.candidate_model if args.candidate_model else None
+    candidate_tokenizer_id = config["model"]["id"] if args.candidate_model else None
     candidate_tokenizer_revision = candidate_revision if args.candidate_model else None
     limits = SearchLimits(_pick(args.max_results, config, "tools", "max_results"),
                           _pick(args.max_bytes_per_hit, config, "tools", "max_bytes_per_hit"),
@@ -236,7 +251,7 @@ def command_records(args):
     from .artifacts import write_sidecar
     bank_meta = _provenance(config, args, "study_record_bank", manifest["corpus_hash"],
                             dependencies=[("corpus_manifest", args.manifest)],
-                            model_id=args.candidate_model or config["model"]["id"],
+                            model_id=config["model"]["id"],
                             tokenizer_id=candidate_tokenizer_id,
                             tokenizer_revision=candidate_tokenizer_revision)
     bank_meta["shard"] = {"num_workers": args.num_workers, "worker_index": args.worker_index}
@@ -262,22 +277,25 @@ def command_records(args):
         "elapsed_seconds": time.perf_counter() - started,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
     }
-    report["resolved_config_hash"] = config["config_hash"]
-    report["artifact_schema_version"] = 2
+    report["resolved_config_hash"] = config["resolved_config_hash"]
+    report["protocol_config_hash"] = config["protocol_config_hash"]
+    report["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION
     report["provenance"] = _provenance(
         config, args, "study_bank_audit", manifest["corpus_hash"],
         dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.output)],
-        model_id=args.candidate_model or config["model"]["id"],
+        model_id=config["model"]["id"],
         tokenizer_id=candidate_tokenizer_id,
-        tokenizer_revision=candidate_tokenizer_revision)
+        tokenizer_revision=candidate_tokenizer_revision,
+        artifact_path=args.coverage_report)
     write_json(args.coverage_report, report)
     write_json(args.probes, independent_probes(manifest["units"], records))
     write_sidecar(args.probes, _provenance(
         config, args, "corpus_probe_bank", manifest["corpus_hash"],
         dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.output)],
-        model_id=args.candidate_model or config["model"]["id"],
+        model_id=config["model"]["id"],
         tokenizer_id=candidate_tokenizer_id,
-        tokenizer_revision=candidate_tokenizer_revision))
+        tokenizer_revision=candidate_tokenizer_revision,
+        artifact_path=args.probes))
     print(json.dumps({"records": len(records), "output": args.output, "coverage": report}, indent=2))
 
 
@@ -291,18 +309,19 @@ def command_peek(args):
         raise SystemExit("peek-study requires --manifest for live-corpus verification")
     manifest = _read_manifest(args.manifest, require_current=True, config=config)
     _verify_live_manifest(manifest)
-    records = _read_records(args.records)
-    corpus_hash = records[0].corpus_hash if records else ""
-    _read_records(args.records, require_current=True, config=config, corpus_hash=corpus_hash)
-    from .isolation import validate_study_bank
+    corpus_hash = manifest["corpus_hash"]
+    records = _read_records(args.records, require_current=True, config=config,
+                            corpus_hash=corpus_hash)
+    from .isolation import contamination_attestation, validate_study_bank
     validate_study_bank(records, corpus_hash)
     audit_path = getattr(args, "contamination_audit", None)
     if not audit_path:
         raise SystemExit("peek-study requires --contamination-audit; failed audits cannot be frozen")
-    audit = _read_contamination_audit(audit_path)
+    audit = _read_contamination_audit(audit_path, config=config)
     _assert_audit_covers(audit, [args.records, manifest["root"]])
     if args.max_records is not None: records = records[:args.max_records]
     model_path = args.model or config["model"]["id"]
+    model_identity = config["model"]["id"]
     revision = args.model_revision or config["model"]["revision"]
     tokenizer = AutoTokenizer.from_pretrained(model_path, revision=revision, local_files_only=args.local_files_only)
     model = AutoModelForCausalLM.from_pretrained(model_path, revision=revision, device_map=args.device,
@@ -314,7 +333,7 @@ def command_peek(args):
         retry_max_new_tokens=_pick(args.retry_max_new_tokens, config, "peek_internal", "retry_max_new_tokens"),
         retries=_pick(args.retries, config, "peek", "retries"))
     token_counter = lambda value: len(tokenizer.encode(value, add_special_tokens=False))
-    counter_name = f"{model_path}@{revision}"
+    counter_name = f"{model_identity}@{revision}"
     payload = study_offline_peek(records, args.output,
                                  token_budget=args.token_budget, client=client,
                                  replay_fraction=_pick(args.replay, config, "replay", "fraction"),
@@ -322,14 +341,14 @@ def command_peek(args):
                                  batch_size=_pick(args.batch_size, config, "training", "batch_size"),
                                  updates_per_source=_pick(args.updates_per_source, config, "training", "steps_per_source"),
                                  token_counter=token_counter, counter_name=counter_name,
+                                 expected_corpus_hash=corpus_hash,
                                  model_provenance={**config["model"], "id": model_path, "revision": revision},
         artifact_provenance=_provenance(
             config, args, "offline_peek_map", corpus_hash,
             dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.records),
                           ("contamination_audit", audit_path)],
-            tokenizer_id=model_path, tokenizer_revision=revision,
-            contamination_audit={"status": audit["status"],
-                                 "artifact_sha256": audit.get("provenance", {}).get("artifact_sha256")}))
+            tokenizer_id=model_identity, tokenizer_revision=revision,
+            contamination_audit=contamination_attestation(audit)))
     print(json.dumps({k: payload[k] for k in ("protocol", "update_count", "map_text_tokens", "map_text_bytes", "complete_artifact_bytes")}, indent=2))
 
 
@@ -345,7 +364,7 @@ def command_train(args):
     _verify_live_manifest(manifest)
     records = _read_records(args.records, require_current=True, config=config,
                             corpus_hash=manifest["corpus_hash"])
-    from .isolation import validate_study_bank
+    from .isolation import contamination_attestation, validate_study_bank
     validate_study_bank(records, manifest["corpus_hash"])
     if args.max_records is not None: records = records[:args.max_records]
     if args.probes:
@@ -353,6 +372,7 @@ def command_train(args):
         from .search import TOOL_SCHEMA_HASH
         read_sidecar(args.probes, artifact_type="corpus_probe_bank",
                      model_id=config["model"]["id"], model_revision=config["model"]["revision"],
+                     protocol_config_hash=config["protocol_config_hash"],
                      corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH)
     probes = json.loads(Path(args.probes).read_text(encoding="utf-8")) if args.probes else None
     if probes is not None and args.max_probes is not None: probes = probes[:args.max_probes]
@@ -364,7 +384,7 @@ def command_train(args):
     audit_path = getattr(args, "contamination_audit", None)
     if not audit_path:
         raise SystemExit("train-latent requires --contamination-audit; failed audits cannot be frozen")
-    audit = _read_contamination_audit(audit_path)
+    audit = _read_contamination_audit(audit_path, config=config)
     _assert_audit_covers(audit, [args.records, manifest["root"]])
     seed = _pick(args.seed, config, "seed"); torch.manual_seed(seed)
     if torch.cuda.is_available(): torch.cuda.manual_seed_all(seed)
@@ -373,8 +393,9 @@ def command_train(args):
     prefix = load_qwen(model_path, length=_pick(args.length, config, "latent", "length"),
                        dtype=args.dtype or config["model"]["dtype"], revision=revision,
                        device=args.device, init_std=config["latent"]["init_std"])
+    model_identity = config["model"]["id"]
     report = train(prefix, records, {u.unit_id: u for u in manifest["units"]}, args.output,
-                   corpus_hash=manifest["corpus_hash"], model_id=model_path,
+                   corpus_hash=manifest["corpus_hash"], model_id=model_identity,
                    learning_rate=_pick(args.learning_rate, config, "training", "learning_rate"),
                    weight_decay=config["training"]["weight_decay"],
                    optimizer_name=config["training"]["optimizer"],
@@ -393,18 +414,17 @@ def command_train(args):
                        dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.records),
                                      *([("corpus_probe_bank", args.probes)] if args.probes else []),
                                      ("contamination_audit", audit_path)],
-                       tokenizer_id=model_path, tokenizer_revision=revision,
-                       contamination_audit={"status": audit["status"],
-                                            "artifact_sha256": audit.get("provenance", {}).get("artifact_sha256")}))
+                       tokenizer_id=model_identity, tokenizer_revision=revision,
+                       contamination_audit=contamination_attestation(audit)))
     report["provenance"] = _provenance(
         config, args, "latent_training_report", manifest["corpus_hash"],
         dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.records),
                       *([("corpus_probe_bank", args.probes)] if args.probes else []),
                       ("trained_latent", args.output), ("contamination_audit", audit_path)],
-        tokenizer_id=model_path, tokenizer_revision=revision,
-        contamination_audit={"status": audit["status"],
-                             "artifact_sha256": audit.get("provenance", {}).get("artifact_sha256")})
-    report["artifact_schema_version"] = 2
+        tokenizer_id=model_identity, tokenizer_revision=revision,
+        contamination_audit=contamination_attestation(audit),
+        artifact_path=args.report)
+    report["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION
     write_json(args.report, report)
     print(json.dumps(report, indent=2))
 
@@ -429,18 +449,17 @@ def command_init_latent(args):
     audit_path = getattr(args, "contamination_audit", None)
     if not audit_path:
         raise SystemExit("init-latent requires --contamination-audit; failed audits cannot be frozen")
-    audit = _read_contamination_audit(audit_path)
+    audit = _read_contamination_audit(audit_path, config=config)
+    from .isolation import contamination_attestation
     _assert_audit_covers(audit, [manifest["root"]])
-    prefix.save(args.output, corpus_hash=args.corpus_hash, model_id=args.model,
+    model_identity = config["model"]["id"]
+    prefix.save(args.output, corpus_hash=args.corpus_hash, model_id=model_identity,
                 model_revision=revision, seed=args.seed,
                 provenance=_provenance(
                     config, args, "random_latent", args.corpus_hash,
                     dependencies=[("corpus_manifest", manifest_path), ("contamination_audit", audit_path)],
-                    tokenizer_id=args.model, tokenizer_revision=revision,
-                    contamination_audit=(
-                        {"status": audit["status"],
-                         "artifact_sha256": audit.get("provenance", {}).get("artifact_sha256")}
-                        if audit else None)))
+                    tokenizer_id=model_identity, tokenizer_revision=revision,
+                    contamination_audit=contamination_attestation(audit)))
     print(json.dumps({"condition": "untrained_random_latent", "length": args.length,
                       "seed": args.seed, "output": args.output,
                       "deployable_latent_tensor_bytes": prefix.prefix.numel() * prefix.prefix.element_size(),
@@ -465,9 +484,9 @@ def command_replay_report(args):
         raise SystemExit("replay-report requires --manifest for live-corpus verification")
     manifest = _read_manifest(args.manifest, require_current=True, config=config)
     _verify_live_manifest(manifest)
-    records = _read_records(args.records)
-    corpus_hash = records[0].corpus_hash if records else ""
-    _read_records(args.records, require_current=True, config=config, corpus_hash=corpus_hash)
+    corpus_hash = manifest["corpus_hash"]
+    records = _read_records(args.records, require_current=True, config=config,
+                            corpus_hash=corpus_hash)
     from .isolation import validate_study_bank
     validate_study_bank(records, corpus_hash)
     replay_fraction = _pick(args.replay, config, "replay", "fraction")
@@ -488,7 +507,7 @@ def command_replay_report(args):
             batches.append({"source": source, "step": step, "current": batch.current_count,
                             "previous": batch.previous_count,
                             "record_ids": [r.record_id for r in batch.records]})
-    report = {"artifact_schema_version": 2, "replay_fraction": replay_fraction, "compute_matched_updates": len(batches) * batch_size,
+    report = {"artifact_schema_version": ARTIFACT_SCHEMA_VERSION, "replay_fraction": replay_fraction, "compute_matched_updates": len(batches) * batch_size,
               "batches": batches, "exposure_by_record": replay.ledger.by_record,
               "exposure_by_source": replay.ledger.by_source,
               "source_exposure_imbalance": replay.source_imbalance(),
@@ -530,7 +549,8 @@ def command_merge_records(args):
         rows.extend(raw_rows[path])
     if indexes != set(range(args.expected_workers)):
         raise ValueError("missing worker shard index")
-    comparable = ("resolved_config_hash", "model_id", "model_revision", "corpus_hash", "tool_schema_hash")
+    comparable = ("protocol_config_hash", "model_id", "model_revision",
+                  "corpus_hash", "tool_schema_hash")
     if any(any(meta[field] != metas[0][field] for field in comparable) for meta in metas[1:]):
         raise ValueError("worker shard corpus/config/model/tool mismatch")
     record_ids = [row["record_id"] for row in rows]
@@ -538,11 +558,13 @@ def command_merge_records(args):
     write_jsonl(args.output, rows)
     merged = dict(metas[0]); merged["shard"] = {"num_workers": 1, "worker_index": 0,
                                                 "merged_from_workers": args.expected_workers}
-    merged["dependencies"] = [*metas[0].get("dependencies", []),
-                               *( (f"worker_shard_{index}", path)
-                                  for index, path in sorted(zip(
-                                      (meta.get("shard", {}).get("worker_index") for meta in metas),
-                                      args.input))) ]
+    # Worker shards already bind their own transitive corpus dependencies.
+    # Re-describe the direct parents relative to the merged artifact instead
+    # of copying paths whose base was the original shard sidecar.
+    merged["dependencies"] = [
+        (f"worker_shard_{index}", path)
+        for index, path in sorted(zip(
+            (meta.get("shard", {}).get("worker_index") for meta in metas), args.input))]
     merged["command"] = "latent-study merge-records"
     write_sidecar(args.output, merged)
     print(json.dumps({"records": len(rows), "workers": args.expected_workers,
@@ -569,6 +591,7 @@ def command_validate_conditions(args):
                             artifact_type="random_latent" if name.startswith("random") else "trained_latent",
                             artifact_path=path,
                             model_id=model_cfg["id"], model_revision=model_cfg["revision"],
+                            protocol_config_hash=config["protocol_config_hash"],
                             corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH,
                             tokenizer_id=model_cfg["id"], tokenizer_revision=model_cfg["revision"])
         if (payload.get("length") != config["latent"]["length"]
@@ -583,6 +606,7 @@ def command_validate_conditions(args):
                                ("offline_peek_1024", args.peek1024, 1024)):
         payload = validate_json_artifact(path, artifact_type="offline_peek_map",
                                          model_id=model_cfg["id"], model_revision=model_cfg["revision"],
+                                         protocol_config_hash=config["protocol_config_hash"],
                                          corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH,
                                          tokenizer_id=model_cfg["id"], tokenizer_revision=model_cfg["revision"])
         assert_frozen_payload(payload)
@@ -608,7 +632,7 @@ def command_validate_conditions(args):
                       ("offline_peek_64", "map", args.peek64),
                       ("offline_peek_1024", "map", args.peek1024))]
     assert_fair_conditions(conditions)
-    report = {"artifact_schema_version": 2, "status": "compatible", "phase": "preflight_only_no_evaluation_started",
+    report = {"artifact_schema_version": ARTIFACT_SCHEMA_VERSION, "status": "compatible", "phase": "preflight_only_no_evaluation_started",
               "conditions": [condition.name for condition in conditions],
               "latent_artifacts": latent_payloads, "peek_artifacts": peek_payloads,
               "full_recompute_fallback_acknowledged": args.acknowledge_full_recompute_fallback,
@@ -636,7 +660,7 @@ def command_smoke_eval(args):
     validate_study_bank(records, manifest["corpus_hash"])
     report = tool_smoke(records, CodingTools(manifest["root"], manifest["units"], SearchLimits(
         args.max_results, args.max_bytes_per_hit, args.max_total_bytes), manifest=manifest))
-    report["artifact_schema_version"] = 2
+    report["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION
     report["provenance"] = _provenance(
         config, args, "tool_smoke_report", manifest["corpus_hash"],
         dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.records)])
@@ -654,6 +678,7 @@ def command_root_agent(args):
     manifest = _read_manifest(args.manifest, require_current=True, config=config)
     _verify_live_manifest(manifest)
     model_path = args.model or config["model"]["id"]
+    model_identity = config["model"]["id"]
     model_revision = args.model_revision or config["model"]["revision"]
     latent = None; map_text = ""; memory_kind = "none"
     if args.condition in {"random_latent_L64", "trained_latent_L64"}:
@@ -668,9 +693,10 @@ def command_root_agent(args):
                             artifact_type=("random_latent" if args.condition.startswith("random")
                                            else "trained_latent"),
                             artifact_path=args.memory,
-                            model_id=model_path, model_revision=model_revision,
+                            model_id=model_identity, model_revision=model_revision,
+                            protocol_config_hash=config["protocol_config_hash"],
                             corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH,
-                            tokenizer_id=model_path,
+                            tokenizer_id=model_identity,
                             tokenizer_revision=model_revision)
         if checkpoint_meta.get("length") != config["latent"]["length"]:
             raise ValueError("latent length mismatch")
@@ -681,17 +707,19 @@ def command_root_agent(args):
                            revision=model_revision, device=args.device,
                            init_std=config["latent"]["init_std"])
         latent_meta = latent.load(args.memory, expected_corpus_hash=manifest["corpus_hash"],
-                                  expected_model_id=model_path,
+                                  expected_model_id=model_identity,
                                   expected_model_revision=model_revision,
-                                  expected_tokenizer_id=model_path,
+                                  expected_protocol_config_hash=config["protocol_config_hash"],
+                                  expected_tokenizer_id=model_identity,
                                   expected_tokenizer_revision=model_revision)
         validate_provenance(latent_meta.get("provenance", {}),
                             artifact_type=("random_latent" if args.condition.startswith("random")
                                            else "trained_latent"),
-                            model_id=model_path,
+                            model_id=model_identity,
                             model_revision=model_revision,
+                            protocol_config_hash=config["protocol_config_hash"],
                             corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH,
-                            tokenizer_id=model_path,
+                            tokenizer_id=model_identity,
                             tokenizer_revision=model_revision)
         model, tokenizer = latent.model, latent.tokenizer
     else:
@@ -702,17 +730,18 @@ def command_root_agent(args):
             from .artifacts import validate_json_artifact
             expected_budget = 64 if args.condition.endswith("64") else 1024
             peek = validate_json_artifact(args.memory, artifact_type="offline_peek_map",
-                                          model_id=model_path,
+                                          model_id=model_identity,
                                           model_revision=model_revision,
+                                          protocol_config_hash=config["protocol_config_hash"],
                                           corpus_hash=manifest["corpus_hash"],
                                           tool_schema_hash=TOOL_SCHEMA_HASH,
-                                          tokenizer_id=model_path,
+                                          tokenizer_id=model_identity,
                                           tokenizer_revision=model_revision)
             from .isolation import assert_frozen_payload
             assert_frozen_payload(peek)
             if peek.get("token_budget") != expected_budget:
                 raise ValueError("PEEK map token budget is incompatible with condition")
-            if peek.get("token_counter") != f"{model_path}@{model_revision}":
+            if peek.get("token_counter") != f"{model_identity}@{model_revision}":
                 raise ValueError("PEEK tokenizer/model revision mismatch")
         tokenizer = AutoTokenizer.from_pretrained(model_path, revision=model_revision,
                                                   local_files_only=args.local_files_only)
@@ -736,17 +765,17 @@ def command_root_agent(args):
                           decoding={**config["decoding"], "seed": config["seed"]},
                           root_prompt_revision=root_cfg["prompt_revision"],
                           allow_full_recompute_fallback=args.acknowledge_full_recompute_fallback,
-                          model_id=model_path)
+                          model_id=model_identity)
     agent = FrozenRootAgent(model, tokenizer, tools, condition, prefix_lm=latent, map_text=map_text,
                             max_new_tokens_per_turn=config["decoding"]["max_new_tokens_per_turn"])
     from .io import jsonable
-    report = agent.run(args.question); report["artifact_schema_version"] = 2; report["condition"] = jsonable(condition)
+    report = agent.run(args.question); report["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION; report["condition"] = jsonable(condition)
     report["scope"] = "synthetic corpus-derived prompts only; not official StudyBench"
     report["provenance"] = _provenance(
         config, args, "synthetic_root_agent_run", manifest["corpus_hash"],
         dependencies=[("corpus_manifest", args.manifest),
                       *([("memory", args.memory)] if args.memory else [])],
-        tokenizer_id=model_path, tokenizer_revision=model_revision)
+        tokenizer_id=model_identity, tokenizer_revision=model_revision)
     write_json(args.output, report); print(json.dumps(report, indent=2))
 
 
@@ -757,23 +786,24 @@ def command_evaluate(args):
         raise RuntimeError("evaluation requires --acknowledge-full-recompute-fallback until native Qwen cache is verified")
     manifest = _read_manifest(args.manifest, require_current=True, config=config)
     _verify_live_manifest(manifest)
-    from .evaluation import (MVP_CONDITIONS, budget_from_config, load_evaluation_dataset,
-                             load_judge, run_evaluation)
+    from .evaluation import (MVP_CONDITIONS, SequentialRunnerFactory,
+                             budgets_from_config, evaluation_dataset_snapshot,
+                             load_evaluation_dataset, load_judge, run_evaluation)
     from .agent import Condition, FrozenRootAgent, InferenceBudget, assert_fair_conditions
     from .artifacts import validate_json_artifact, validate_provenance
-    from .isolation import assert_frozen_payload
+    from .isolation import (assert_frozen_payload,
+                            verify_memory_contamination_binding)
     from .search import CodingTools, SearchLimits, TOOL_SCHEMA_HASH
     import torch
 
     _require_evaluation_dataset(config, args.dataset)
+    dataset_snapshot = evaluation_dataset_snapshot(args.dataset)
     examples = load_evaluation_dataset(args.dataset)
-    budget_profile = budget_from_config(config, args.budget)
-    budget = InferenceBudget(budget_profile.max_tool_calls, budget_profile.max_output_tokens,
-                             budget_profile.max_observation_bytes, budget_profile.exact_tool_calls,
-                             budget_profile.allow_early_return)
+    budget_profiles = budgets_from_config(config, args.budget)
     model_cfg, tools_cfg, root_cfg = config["model"], config["tools"], config["root_agent"]
     revision = args.model_revision or model_cfg["revision"]
     model_path = args.model or model_cfg["id"]
+    model_identity = model_cfg["id"]
     limits = SearchLimits(tools_cfg["max_results"], tools_cfg["max_bytes_per_hit"],
                           tools_cfg["max_total_bytes"], tools_cfg["grep_context_lines"],
                           tools_cfg["max_query_chars"])
@@ -782,17 +812,19 @@ def command_evaluate(args):
                     "offline_peek_64": args.peek64,
                     "offline_peek_1024": args.peek1024}
     expected_budgets = {"offline_peek_64": 64, "offline_peek_1024": 1024}
+    memory_payloads = {}
     for name, path in memory_paths.items():
         if name.startswith("offline_peek"):
             payload = validate_json_artifact(path, artifact_type="offline_peek_map",
-                                              model_id=model_path, model_revision=revision,
+                                              model_id=model_identity, model_revision=revision,
+                                              protocol_config_hash=config["protocol_config_hash"],
                                               corpus_hash=manifest["corpus_hash"],
                                               tool_schema_hash=TOOL_SCHEMA_HASH,
-                                              tokenizer_id=model_path, tokenizer_revision=revision)
+                                              tokenizer_id=model_identity, tokenizer_revision=revision)
             assert_frozen_payload(payload)
             if payload.get("token_budget") != expected_budgets[name]:
                 raise ValueError(f"{name} map token budget mismatch")
-            if payload.get("token_counter") != f"{model_path}@{revision}":
+            if payload.get("token_counter") != f"{model_identity}@{revision}":
                 raise ValueError(f"{name} tokenizer/model revision mismatch")
         else:
             payload = torch.load(path, map_location="cpu", weights_only=True)
@@ -801,61 +833,98 @@ def command_evaluate(args):
                 raise ValueError("random latent artifact lacks a reproducible initializer seed")
             validate_provenance(payload.get("provenance", {}),
                                 artifact_type="random_latent" if name.startswith("random") else "trained_latent",
-                                artifact_path=path, model_id=model_path, model_revision=revision,
+                                artifact_path=path, model_id=model_identity, model_revision=revision,
+                                protocol_config_hash=config["protocol_config_hash"],
                                 corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH,
-                                tokenizer_id=model_path, tokenizer_revision=revision)
+                                tokenizer_id=model_identity, tokenizer_revision=revision)
+            if (payload.get("length") != config["latent"]["length"]
+                    or payload["prefix"].shape[0] != config["latent"]["length"]
+                    or payload.get("hidden_size") != payload["prefix"].shape[1]):
+                raise ValueError(f"{name} latent shape metadata mismatch")
+        verify_memory_contamination_binding(
+            payload, path, evaluation_dataset_sha256=dataset_snapshot["sha256"],
+            protocol_config_hash=config["protocol_config_hash"])
+        memory_payloads[name] = payload
 
-    conditions = []
-    for name, kind, path in (("no_study", "none", None),
-                             ("random_latent_L64", "latent", memory_paths["random_latent_L64"]),
-                             ("trained_latent_L64", "latent", memory_paths["trained_latent_L64"]),
-                             ("offline_peek_64", "map", memory_paths["offline_peek_64"]),
-                             ("offline_peek_1024", "map", memory_paths["offline_peek_1024"])):
-        conditions.append(Condition(name, kind, path, budget, tools_cfg, revision,
-                                    manifest["corpus_hash"], decoding={**config["decoding"], "seed": config["seed"]},
-                                    root_prompt_revision=root_cfg["prompt_revision"],
-                                    allow_full_recompute_fallback=True, model_id=model_path))
+    condition_specs = {
+        "no_study": ("none", None),
+        "random_latent_L64": ("latent", memory_paths["random_latent_L64"]),
+        "trained_latent_L64": ("latent", memory_paths["trained_latent_L64"]),
+        "offline_peek_64": ("map", memory_paths["offline_peek_64"]),
+        "offline_peek_1024": ("map", memory_paths["offline_peek_1024"]),
+    }
 
-    # Check fairness before constructing any model/agent runner so an
-    # incompatible condition cannot trigger partial evaluation work.
-    assert_fair_conditions(conditions)
+    def condition_for(name, profile):
+        inference = InferenceBudget(profile.max_tool_calls, profile.max_output_tokens,
+                                    profile.max_observation_bytes, profile.exact_tool_calls,
+                                    profile.allow_early_return)
+        kind, path = condition_specs[name]
+        return Condition(name, kind, path, inference, tools_cfg, revision,
+                         manifest["corpus_hash"],
+                         decoding={**config["decoding"], "seed": config["seed"]},
+                         root_prompt_revision=root_cfg["prompt_revision"],
+                         allow_full_recompute_fallback=True, model_id=model_identity)
 
-    runners = {}
-    for condition in conditions:
+    # Fail fairness preflight for every requested budget before loading Qwen.
+    for profile in budget_profiles:
+        assert_fair_conditions([condition_for(name, profile) for name in MVP_CONDITIONS])
+
+    # One frozen backbone/tokenizer is shared by every condition.  Each lease
+    # creates only the intended memory wrapper/map and is released before the
+    # next condition/budget runner is built.
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from .latent import SoftPrefixLM
+    tokenizer = AutoTokenizer.from_pretrained(model_path, revision=revision,
+                                              local_files_only=args.local_files_only)
+    model = AutoModelForCausalLM.from_pretrained(model_path, revision=revision,
+                                                 device_map=args.device, dtype=model_cfg["dtype"],
+                                                 local_files_only=args.local_files_only)
+    for parameter in model.parameters():
+        parameter.requires_grad_(False)
+    model.eval()
+
+    def build_runner(name, profile):
+        condition = condition_for(name, profile)
         latent, map_text = None, ""
         if condition.memory_kind == "latent":
-            from .latent import load_qwen
-            latent = load_qwen(model_path, length=config["latent"]["length"], dtype=model_cfg["dtype"],
-                               revision=revision, device=args.device, init_std=config["latent"]["init_std"])
+            latent = SoftPrefixLM(model, tokenizer, length=config["latent"]["length"],
+                                  init_std=config["latent"]["init_std"])
             latent.load(condition.memory_path, expected_corpus_hash=manifest["corpus_hash"],
-                        expected_model_id=model_path, expected_model_revision=revision,
-                        expected_tokenizer_id=model_path, expected_tokenizer_revision=revision)
-            model, tokenizer = latent.model, latent.tokenizer
-        else:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained(model_path, revision=revision,
-                                                      local_files_only=args.local_files_only)
-            model = AutoModelForCausalLM.from_pretrained(model_path, revision=revision,
-                                                         device_map=args.device, dtype=model_cfg["dtype"],
-                                                         local_files_only=args.local_files_only)
-            for parameter in model.parameters(): parameter.requires_grad_(False)
-            model.eval()
-            if condition.memory_kind == "map":
-                map_text = json.loads(Path(condition.memory_path).read_text(encoding="utf-8"))["map_text"]
+                        expected_model_id=model_identity, expected_model_revision=revision,
+                        expected_protocol_config_hash=config["protocol_config_hash"],
+                        expected_tokenizer_id=model_identity, expected_tokenizer_revision=revision)
+        elif condition.memory_kind == "map":
+            map_text = memory_payloads[name]["map_text"]
         tools = CodingTools(manifest["root"], manifest["units"], limits, manifest=manifest)
         agent = FrozenRootAgent(model, tokenizer, tools, condition, prefix_lm=latent,
-                                map_text=map_text, max_new_tokens_per_turn=config["decoding"]["max_new_tokens_per_turn"])
-        runners[condition.name] = lambda example, _budget, agent=agent: agent.run(example.question)
+                                map_text=map_text,
+                                max_new_tokens_per_turn=config["decoding"]["max_new_tokens_per_turn"])
+        agent._shared_backbone_identity = id(model)
+        return lambda example, _profile: agent.run(example.question)
+
+    runner_factory = SequentialRunnerFactory(build_runner, shared_backbone=model)
     dependencies = [("config", args.config), ("corpus_manifest", args.manifest), ("evaluation_dataset", args.dataset),
                     *[(name, path) for name, path in memory_paths.items()]]
     provenance = _provenance(config, args, "evaluation_result", manifest["corpus_hash"],
-                             dependencies=dependencies, tokenizer_id=model_path,
+                             dependencies=dependencies, tokenizer_id=model_identity,
                              tokenizer_revision=revision)
-    report = run_evaluation(examples, runners, budget=budget_profile,
-                            scorer=load_judge(args.judge), output=args.output,
-                            provenance=provenance, fair_conditions=conditions)
+    try:
+        report = run_evaluation(examples, runner_factory=runner_factory,
+                                budgets=budget_profiles, scorer=load_judge(args.judge),
+                                output=args.output, provenance=provenance,
+                                dataset_snapshot=dataset_snapshot)
+    finally:
+        # These are the only long-lived model references.  Condition agents are
+        # already gone before this final cleanup.
+        del runner_factory, model, tokenizer
+        import gc
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     print(json.dumps({"output": args.output, "conditions": list(MVP_CONDITIONS),
-                      "examples": len(examples), "budget": budget_profile.__dict__}, indent=2))
+                      "examples": len(examples),
+                      "budgets": [profile.__dict__ for profile in budget_profiles],
+                      "evaluation_dataset_sha256": dataset_snapshot["sha256"]}, indent=2))
 
 
 def parser():
@@ -971,7 +1040,10 @@ def parser():
     evaluate.add_argument("--random-latent", required=True); evaluate.add_argument("--trained-latent", required=True)
     evaluate.add_argument("--peek64", required=True); evaluate.add_argument("--peek1024", required=True)
     evaluate.add_argument("--model"); evaluate.add_argument("--model-revision"); evaluate.add_argument("--device", default="cuda:0")
-    evaluate.add_argument("--local-files-only", action="store_true"); evaluate.add_argument("--budget")
+    evaluate.add_argument("--local-files-only", action="store_true")
+    evaluate.add_argument("--budget", action="append",
+                          choices=("direct", "max5", "max20", "exact20"),
+                          help="repeat to evaluate selected budgets; default runs all configured budgets")
     evaluate.add_argument("--judge", help="evaluation-only scorer as module:function")
     evaluate.add_argument("--acknowledge-full-recompute-fallback", action="store_true")
     evaluate.add_argument("--output", required=True); evaluate.set_defaults(func=command_evaluate)

@@ -182,14 +182,16 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
                        client, replay_fraction: float = 0.5, seed: int = 0, batch_size: int = 4,
                        updates_per_source: int = 2, token_counter=None,
                        counter_name: str = "unspecified", model_provenance: dict | None = None,
-                       artifact_provenance: dict | None = None) -> dict:
+                       artifact_provenance: dict | None = None,
+                       expected_corpus_hash: str | None = None) -> dict:
     try:
         from peek import CachePolicy, ContextMap
     except ImportError as exc:
         raise RuntimeError("install the pinned PEEK dependency with `pip install -e '.[peek]'`") from exc
     if not records: raise ValueError("PEEK study bank is empty")
     from .isolation import validate_study_bank
-    validate_study_bank(records, records[0].corpus_hash)
+    authoritative_corpus_hash = expected_corpus_hash or records[0].corpus_hash
+    validate_study_bank(records, authoritative_corpus_hash)
     if isinstance(client, type) or client.__class__.__name__.startswith("Fake"):
         raise ValueError("production PEEK study refuses fake clients")
     if token_counter is None: raise ValueError("PEEK requires the actual deployment tokenizer")
@@ -238,7 +240,9 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
         failed_stats["malformed_output_rate"] = failed_stats.get("malformed_outputs", 0) / calls
         failed_stats["retry_rate"] = failed_stats.get("retry_calls", 0) / calls
         failed_stats["failure_rate_per_update"] = failed_stats.get("failed_outputs", 0) / max(1, update_count * 2)
-        failed = {"artifact_schema_version": 2, "status": "failed", "phase": "study_failed",
+        from .artifacts import ARTIFACT_SCHEMA_VERSION
+        failed = {"artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
+                  "status": "failed", "phase": "study_failed",
                   "evaluation_inputs_seen": False, "protocol": "offline_peek_map",
                   "provenance": artifact_provenance or {}, "token_budget": token_budget,
                   "token_counter": counter_name, "completed_updates": update_count,
@@ -270,10 +274,14 @@ def study_offline_peek(records: list[StudyRecord], output: str | Path, *, token_
     contamination = (artifact_provenance or {}).get("contamination_audit", {})
     attested = (isinstance(contamination, dict) and contamination.get("status") == "pass"
                 and isinstance(contamination.get("artifact_sha256"), str)
-                and re.fullmatch(r"[0-9a-f]{64}", contamination["artifact_sha256"]))
+                and re.fullmatch(r"[0-9a-f]{64}", contamination["artifact_sha256"])
+                and isinstance(contamination.get("evaluation_dataset_sha256"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", contamination["evaluation_dataset_sha256"]))
+    from .artifacts import ARTIFACT_SCHEMA_VERSION
     payload.update({"phase": "frozen_before_evaluation" if attested else "study_complete_unattested",
                     "evaluation_inputs_seen": False,
-                    "artifact_schema_version": 2, "provenance": artifact_provenance or {},
+                    "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
+                    "provenance": artifact_provenance or {},
                     "protocol": "offline_peek_map", "upstream_policy": True,
                     "upstream_revision": "8b109771b51126284ea337f23827facde1db05ed",
                     "update_count": update_count, "replay_fraction": replay_fraction,

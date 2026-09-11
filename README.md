@@ -143,7 +143,7 @@ latent-study replay-report --manifest artifacts/audit/dspy_manifest.json \
   --replay 0 --output artifacts/study/replay_0.json
 ```
 
-The production `evaluate` command loads a separate frozen JSON/JSONL dataset, validates all five frozen conditions and their exact dependency hashes, and emits per-example compute/scoring records plus expertise-ready performance-vs-compute data. Select `--budget direct`, `--budget max5`, `--budget max20`, or `--budget exact20`; `--judge module:function` injects the evaluation-only strict/lenient scorer. It requires explicit acknowledgement of the currently conservative Qwen `full_recompute_fallback`.
+The production `evaluate` command loads a separate frozen JSON/JSONL dataset, validates all five frozen conditions and their exact portable dependency hashes, and verifies that every memory's contamination audit names that exact evaluation snapshot. It loads one frozen backbone and leases one condition runner at a time, so five condition objects cannot retain five model copies. Omit `--budget` to run every configured budget, or repeat it to select a subset, for example `--budget direct --budget max5`. `--judge module:function` injects the evaluation-only strict/lenient scorer. The command requires explicit acknowledgement of the conservative Qwen `full_recompute_fallback`.
 
 ```bash
 latent-study evaluate --manifest artifacts/audit/dspy_manifest.json \
@@ -152,7 +152,7 @@ latent-study evaluate --manifest artifacts/audit/dspy_manifest.json \
   --trained-latent artifacts/checkpoints/dspy_L64.pt \
   --peek64 artifacts/study/offline_peek_64.json \
   --peek1024 artifacts/study/offline_peek_1024.json \
-  --budget max5 --judge my_eval:score \
+  --budget direct --budget max5 --budget max20 --judge my_eval:score \
   --acknowledge-full-recompute-fallback --output artifacts/evaluation/mvp.json
 ```
 
@@ -171,17 +171,17 @@ CUDA_VISIBLE_DEVICES=0 python scripts/real_model_smoke.py \
   --output artifacts/smoke/real_model_smoke.json
 
 latent-study expertise --point 5000:10 --point 10000:20 \
-  --point 20000:30 --point 100000:40
+  --point 20000:30 --point 100000:40  # debugging only
 ```
 
-The expertise command implements the primary specification exactly: best score achieved at or below each generated-token budget; log-token anchor 3k; `w(x)=ln(10) 10^-x`; zero below the first measured point; last score carried to infinity. The example above returns 10.8.
+Production evaluation does not require manually entered points. For each condition and evaluation budget it emits one aggregate curve point: x is mean generated tokens per example over the benchmark at that budget, and y is aggregate strict or lenient score. The historical 3k-token anchor and integration rule are preserved. The standalone `expertise --point` command remains only as a debugging utility.
 
 Primary downstream conditions are no study, random latent L64, trained latent L64, offline PEEK 64, and offline PEEK 1024. They must use identical root-agent, search limits, corpus, output constraints, and inference budgets. The evidence scorer is training/diagnostic-only and is not an evaluation-time reranker.
 
 ## Current repair validation status
 
-The current schema-v2 provenance audit produced 371 decoded text documents, 2,571 non-overlapping semantic units, an estimated 513,596 eligible lexical tokens, 4,567 symbol occurrences, 14,048 syntactic call sites, and 1,733 conservatively verified call relations. It reports 90 ambiguous, 2,953 lexically shadowed, and 9,272 otherwise excluded call sites. These are tokenizer-independent audit estimates; actual model-token exposure must be reported during training.
+The current schema-v3 provenance contract cryptographically binds artifact content, protocol and command configuration identities, canonical corpus/evaluation snapshots, and portable parent dependencies. The historical corpus audit produced 371 decoded text documents, 2,571 non-overlapping semantic units, an estimated 513,596 eligible lexical tokens, 4,567 symbol occurrences, 14,048 syntactic call sites, and 1,733 conservatively verified call relations. It reports 90 ambiguous, 2,953 lexically shadowed, and 9,272 otherwise excluded call sites. These are tokenizer-independent historical audit estimates; actual model-token exposure must be reported during training.
 
-CPU/mock validation currently collects 49 tests. It covers isolation, cryptographic artifact/dependency rejection, live-corpus verification, contamination auditing, strict tool-schema parsing, the shared memory boundary, prefix placement, combined production optimization, exact rendered evidence visibility, lexical shadowing, dynamically growing replay with compute-matched replay=0 control, worker invariance/merge, separate PEEK format failures, final-map budget enforcement, and failed-study diagnostics, five-condition evaluation plumbing/budget checks, all five synthetic root-loop conditions, and the official metric.
+CPU/mock validation currently collects 58 tests. It additionally covers protocol-versus-command configuration compatibility, portable dependency relocation, unified semantic corpus identity, current-dataset contamination binding, sequential shared-backbone evaluation, budget-level aggregation, manifest-authoritative PEEK setup, and per-run CUDA peak reset.
 
-All older checked-in record, replay, latent, PEEK, root-agent, and real-Qwen result artifacts predate the current artifact contract and are historical only. Production loaders reject them rather than silently treating them as current. In particular, the historical PEEK-64 map is only `## CONTEXT ROADMAP` (5 actual Qwen tokens), and the historical combined-objective smoke increased from about 1.7529 to 1.9798. The Round 1 report remains historical; the current infrastructure status is in [REPAIR_ROUND_2_REPORT.md](docs/REPAIR_ROUND_2_REPORT.md).
+All older checked-in record, replay, latent, PEEK, root-agent, and real-Qwen result artifacts predate the current artifact contract and are historical only. Production loaders reject them rather than silently treating them as current. In particular, PEEK-64 and the real-Qwen latent optimization smoke remain blocked; Round 3 does not weaken either gate. The current infrastructure status is in [REPAIR_ROUND_3_REPORT.md](docs/REPAIR_ROUND_3_REPORT.md).

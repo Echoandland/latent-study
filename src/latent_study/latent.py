@@ -194,13 +194,16 @@ class SoftPrefixLM:
         attestation = metadata.get("contamination_audit") or {}
         attested = (attestation.get("status") == "pass"
                     and isinstance(attestation.get("artifact_sha256"), str)
-                    and re.fullmatch(r"[0-9a-f]{64}", attestation["artifact_sha256"]))
+                    and re.fullmatch(r"[0-9a-f]{64}", attestation["artifact_sha256"])
+                    and isinstance(attestation.get("evaluation_dataset_sha256"), str)
+                    and re.fullmatch(r"[0-9a-f]{64}", attestation["evaluation_dataset_sha256"]))
+        from .artifacts import ARTIFACT_SCHEMA_VERSION
         phase = "frozen_before_evaluation" if (provenance is None or attested) else "study_complete_unattested"
         payload = {"prefix": self.prefix.detach().cpu(), "length": self.length,
                    "hidden_size": self.hidden_size, "corpus_hash": corpus_hash,
                    "model_id": model_id, "model_revision": model_revision,
                    "seed": seed, "phase": phase,
-                   "evaluation_inputs_seen": False, "artifact_schema_version": 2,
+                   "evaluation_inputs_seen": False, "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
                    "provenance": metadata}
         if metadata:
             metadata["artifact_sha256"] = None
@@ -213,6 +216,7 @@ class SoftPrefixLM:
              expected_model_revision: str | None = None,
              expected_tokenizer_id: str | None = None,
              expected_tokenizer_revision: str | None = None,
+             expected_protocol_config_hash: str | None = None,
              expected_phase: str = "frozen_before_evaluation") -> dict:
         import torch
         payload = torch.load(path, map_location=self.prefix.device, weights_only=True)
@@ -238,6 +242,7 @@ class SoftPrefixLM:
                                 artifact_type=metadata.get("artifact_type"),
                                 model_id=expected_model_id, model_revision=expected_model_revision,
                                 corpus_hash=expected_corpus_hash,
+                                protocol_config_hash=expected_protocol_config_hash,
                                 tokenizer_id=expected_tokenizer_id,
                                 tokenizer_revision=expected_tokenizer_revision)
         with torch.no_grad():

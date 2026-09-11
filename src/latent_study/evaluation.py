@@ -14,9 +14,12 @@ import math
 import resource
 import statistics
 import time
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
+
+from .io import canonical_hash
 
 
 MVP_CONDITIONS = (
@@ -53,11 +56,43 @@ def _json_values(path: Path) -> list[Any]:
     return value if isinstance(value, list) else [value]
 
 
+def _evaluation_files(path: Path) -> list[Path]:
+    return sorted(item for item in (path.rglob("*") if path.is_dir() else [path])
+                  if item.is_file() and item.suffix.lower() in {".json", ".jsonl"})
+
+
+def evaluation_dataset_snapshot(paths: str | Path | Iterable[str | Path]) -> dict:
+    """Canonical identity of all evaluation content, independent of root path.
+
+    Parsed JSON values (including answers and rubrics) and paths relative to
+    each supplied dataset root are hashed.  Absolute checkout locations and
+    JSON whitespace are deliberately excluded from the identity.
+    """
+    if isinstance(paths, (str, Path)):
+        roots = [Path(paths)]
+    else:
+        roots = [Path(path) for path in paths]
+    entries = []
+    for root in roots:
+        files = _evaluation_files(root)
+        if not files:
+            raise ValueError(f"evaluation dataset has no JSON/JSONL files: {root}")
+        for file in files:
+            relative = file.relative_to(root).as_posix() if root.is_dir() else file.name
+            entries.append({"path": relative, "content": _json_values(file)})
+    entries.sort(key=lambda item: (item["path"], canonical_hash(item["content"])))
+    return {"schema_version": 1, "sha256": canonical_hash(entries),
+            "file_count": len(entries), "paths": [item["path"] for item in entries]}
+
+
+def evaluation_dataset_snapshot_hash(path: str | Path | Iterable[str | Path]) -> str:
+    return evaluation_dataset_snapshot(path)["sha256"]
+
+
 def load_evaluation_dataset(path: str | Path) -> list[EvaluationExample]:
     """Load evaluation-only examples with stable IDs."""
     root = Path(path)
-    files = sorted(item for item in (root.rglob("*") if root.is_dir() else [root])
-                   if item.is_file() and item.suffix.lower() in {".json", ".jsonl"})
+    files = _evaluation_files(root)
     if not files:
         raise ValueError(f"evaluation dataset has no JSON/JSONL files: {root}")
     examples: list[EvaluationExample] = []
@@ -103,6 +138,16 @@ def budget_from_config(config: Mapping[str, Any], name: str | None = None) -> Ev
             raise ValueError(f"evaluation budget {profile_name} has invalid exact_tool_calls")
     return EvaluationBudgetProfile(profile_name, **values, exact_tool_calls=exact,
                                     allow_early_return=bool(raw.get("allow_early_return", True)))
+
+
+def budgets_from_config(config: Mapping[str, Any], names: Iterable[str] | None = None) -> tuple[EvaluationBudgetProfile, ...]:
+    """Resolve a deterministic set of distinct evaluation compute budgets."""
+    selected = tuple(names) if names is not None else tuple(config.get("evaluation", {}).get("budgets", {}))
+    if not selected:
+        raise ValueError("at least one evaluation budget must be selected")
+    if len(set(selected)) != len(selected):
+        raise ValueError("evaluation budget names must not be duplicated")
+    return tuple(budget_from_config(config, name) for name in selected)
 
 
 def load_judge(spec: str | None) -> Callable | None:
@@ -190,25 +235,94 @@ def _mean_or_none(values: Iterable[float | None]) -> float | None:
     return statistics.fmean(clean) if clean else None
 
 
-def _expertise(points: list[tuple[float, float]]) -> tuple[float | None, str | None]:
+def _expertise(points: list[tuple[float, float]]) -> tuple[float | None, str | None, list[tuple[float, float]]]:
+    eligible = [(tokens, score) for tokens, score in points if tokens >= 3000]
     if not points:
-        return None, "no judge score with a measured generated-token budget"
-    if any(tokens < 3000 for tokens, _ in points):
-        return None, "points do not reach the 3,000-token expertise anchor"
+        return None, "no budget-level aggregate judge score with measured mean generated tokens", []
+    if not eligible:
+        return None, "no budget-level aggregate point reaches the 3,000-token expertise anchor", []
     from .metrics import expertise
-    return expertise(points), None
+    return expertise(eligible), None, eligible
 
 
-def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping[str, Callable], *,
-                   budget: EvaluationBudgetProfile, scorer: Callable | None = None,
+def _sum_or_none(values: Iterable[float | None]) -> float | None:
+    clean = [float(value) for value in values if value is not None]
+    return sum(clean) if clean else None
+
+
+def _aggregate_compute(rows: list[dict]) -> dict:
+    fields = ("input_tokens", "generated_tokens", "tool_calls", "observation_bytes",
+              "total_latency_seconds", "prefill_latency_seconds", "decode_latency_seconds")
+    result = {}
+    for field in fields:
+        values = [row["compute"].get(field) for row in rows]
+        result[field] = {"mean_per_example": _mean_or_none(values),
+                         "total": _sum_or_none(values),
+                         "measured_examples": sum(value is not None for value in values)}
+    peaks = [row["compute"].get("peak_memory_bytes") for row in rows
+             if row["compute"].get("peak_memory_bytes") is not None]
+    result["peak_memory_bytes"] = {
+        "max_across_example_runs": max(peaks) if peaks else None,
+        "measured_examples": len(peaks),
+        "scope": "each example run resets CUDA peak statistics before inference",
+    }
+    return result
+
+
+class SequentialRunnerFactory:
+    """Lease exactly one condition/budget runner at a time.
+
+    The factory retains only its builder.  A released runner is never stored,
+    which prevents condition-specific agents or model wrappers from
+    accumulating across the five-condition evaluation.
+    """
+    def __init__(self, build: Callable, release: Callable | None = None, *,
+                 shared_backbone: Any | None = None):
+        self._build = build
+        self._release = release
+        self.shared_backbone = shared_backbone
+        self._active = False
+
+    @contextmanager
+    def lease(self, condition: str, budget: EvaluationBudgetProfile):
+        if self._active:
+            raise RuntimeError("condition runners must execute sequentially")
+        self._active = True
+        runner = self._build(condition, budget)
+        try:
+            yield runner
+        finally:
+            try:
+                if self._release is not None:
+                    self._release(runner)
+                elif hasattr(runner, "close"):
+                    runner.close()
+            finally:
+                runner = None
+                self._active = False
+
+
+def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping[str, Callable] | None = None, *,
+                   budget: EvaluationBudgetProfile | None = None,
+                   budgets: Iterable[EvaluationBudgetProfile] | None = None,
+                   runner_factory: SequentialRunnerFactory | None = None,
+                   scorer: Callable | None = None,
                    conditions: Iterable[str] = MVP_CONDITIONS, output: str | Path | None = None,
-                   provenance: dict | None = None, fair_conditions: list[Any] | None = None) -> dict:
+                   provenance: dict | None = None, fair_conditions: list[Any] | None = None,
+                   dataset_snapshot: dict | None = None) -> dict:
     """Run all MVP conditions and emit an expertise-ready structured artifact."""
     selected = tuple(conditions)
     if selected != MVP_CONDITIONS:
         raise ValueError(f"evaluation must compare exactly the five MVP conditions: {MVP_CONDITIONS}")
-    if set(condition_runners) != set(selected):
+    if (condition_runners is None) == (runner_factory is None):
+        raise ValueError("provide exactly one of condition_runners or runner_factory")
+    if condition_runners is not None and set(condition_runners) != set(selected):
         raise ValueError("condition runners do not cover exactly the five MVP conditions")
+    profiles = tuple(budgets or (() if budget is None else (budget,)))
+    if not profiles:
+        raise ValueError("evaluation requires at least one compute budget")
+    if len({profile.name for profile in profiles}) != len(profiles):
+        raise ValueError("evaluation budget names must be unique")
     if fair_conditions is not None:
         from .agent import assert_fair_conditions
         assert_fair_conditions(fair_conditions)
@@ -220,55 +334,97 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
     started = time.perf_counter()
     records, summaries = [], {}
     for condition in selected:
-        runner = condition_runners[condition]
-        condition_rows = []
-        for example in examples:
-            begin = time.perf_counter()
-            result = runner(example, budget)
-            if not isinstance(result, Mapping):
-                raise ValueError(f"condition runner returned a non-object: {condition}/{example.example_id}")
-            result = dict(result)
-            elapsed = time.perf_counter() - begin
-            compute = _compute_metrics(result)
-            if compute.get("total_latency_seconds") is None:
-                compute["total_latency_seconds"] = elapsed
-            budget_result = _budget_check(result, budget)
-            score = _score(scorer, example, result)
-            row = {"condition": condition, "example_id": example.example_id,
-                   "question": example.question, "score": score,
-                   "budget": budget_result, "compute": compute,
-                   "answer": result.get("answer"), "transcript": result.get("transcript"),
-                   "raw_result_fields": {key: value for key, value in result.items()
-                                         if key not in {"transcript", "answer"}}}
-            records.append(row); condition_rows.append(row)
-        strict = _mean_or_none(row["score"]["strict"] for row in condition_rows)
-        lenient = _mean_or_none(row["score"]["lenient"] for row in condition_rows)
-        points_strict = [(float(row["compute"]["generated_tokens"]), row["score"]["strict"])
-                         for row in condition_rows
-                         if row["compute"]["generated_tokens"] is not None and row["score"]["strict"] is not None
-                         and row["budget"]["valid"]]
-        points_lenient = [(float(row["compute"]["generated_tokens"]), row["score"]["lenient"])
-                          for row in condition_rows
-                          if row["compute"]["generated_tokens"] is not None and row["score"]["lenient"] is not None
-                          and row["budget"]["valid"]]
-        strict_expertise, strict_reason = _expertise(points_strict)
-        lenient_expertise, lenient_reason = _expertise(points_lenient)
+        budget_summaries = {}
+        points_strict, points_lenient = [], []
+        curve_strict, curve_lenient = [], []
+        for profile in profiles:
+            condition_rows = []
+            scope = (runner_factory.lease(condition, profile) if runner_factory is not None
+                     else nullcontext(condition_runners[condition]))
+            with scope as runner:
+                for example in examples:
+                    begin = time.perf_counter()
+                    result = runner(example, profile)
+                    if not isinstance(result, Mapping):
+                        raise ValueError(
+                            f"condition runner returned a non-object: {condition}/{example.example_id}")
+                    result = dict(result)
+                    elapsed = time.perf_counter() - begin
+                    compute = _compute_metrics(result)
+                    if compute.get("total_latency_seconds") is None:
+                        compute["total_latency_seconds"] = elapsed
+                        compute["unavailable"].pop("total_latency_seconds", None)
+                    budget_result = _budget_check(result, profile)
+                    score = _score(scorer, example, result)
+                    row = {"condition": condition, "example_id": example.example_id,
+                           "question": example.question, "score": score,
+                           "budget_profile": profile.name, "budget": budget_result,
+                           "compute": compute, "answer": result.get("answer"),
+                           "transcript": result.get("transcript"),
+                           "raw_result_fields": {key: value for key, value in result.items()
+                                                 if key not in {"transcript", "answer"}}}
+                    records.append(row); condition_rows.append(row)
+            # A ``with`` target remains bound in Python after __exit__.  Drop
+            # it before the next lease so the previous agent/prefix cannot be
+            # live while the following condition runner is constructed.
+            del runner
+            strict = _mean_or_none(row["score"]["strict"] for row in condition_rows)
+            lenient = _mean_or_none(row["score"]["lenient"] for row in condition_rows)
+            compute_aggregate = _aggregate_compute(condition_rows)
+            generated_mean = compute_aggregate["generated_tokens"]["mean_per_example"]
+            all_valid = all(row["budget"]["valid"] for row in condition_rows)
+            summary = {
+                "examples": len(condition_rows), "strict_score_mean": strict,
+                "lenient_score_mean": lenient,
+                "budget_valid_examples": sum(row["budget"]["valid"] for row in condition_rows),
+                "budget_valid_rate": _mean_or_none(
+                    float(row["budget"]["valid"]) for row in condition_rows),
+                "compute": compute_aggregate,
+            }
+            budget_summaries[profile.name] = summary
+            for score_name, score_value, point_list, curve in (
+                    ("strict", strict, points_strict, curve_strict),
+                    ("lenient", lenient, points_lenient, curve_lenient)):
+                point = {"budget_profile": profile.name, "examples": len(condition_rows),
+                         "compute_quantity": "mean_generated_tokens_per_example",
+                         "mean_generated_tokens_per_example": generated_mean,
+                         "total_generated_tokens": compute_aggregate["generated_tokens"]["total"],
+                         "aggregate_score": score_value, "all_examples_budget_valid": all_valid}
+                curve.append(point)
+                if generated_mean is not None and score_value is not None and all_valid:
+                    point_list.append((float(generated_mean), float(score_value)))
+        strict_expertise, strict_reason, strict_inputs = _expertise(points_strict)
+        lenient_expertise, lenient_reason, lenient_inputs = _expertise(points_lenient)
         summaries[condition] = {
-            "examples": len(condition_rows), "strict_score_mean": strict,
-            "lenient_score_mean": lenient, "budget_valid_rate": _mean_or_none(
-                float(row["budget"]["valid"]) for row in condition_rows),
-            "performance_vs_compute": {"strict": points_strict, "lenient": points_lenient},
+            "budgets": budget_summaries,
+            "performance_vs_compute": {
+                "compute_quantity": "mean_generated_tokens_per_example",
+                "strict": curve_strict, "lenient": curve_lenient},
             "expertise_strict": strict_expertise, "expertise_lenient": lenient_expertise,
+            "expertise_input_points": {"strict": strict_inputs, "lenient": lenient_inputs},
             "expertise_unavailable_reason": strict_reason or lenient_reason,
         }
+    from .artifacts import ARTIFACT_SCHEMA_VERSION
     payload = {
-        "artifact_schema_version": 2, "artifact_type": "evaluation_result",
+        "artifact_schema_version": ARTIFACT_SCHEMA_VERSION, "artifact_type": "evaluation_result",
         "phase": "evaluation_complete", "evaluation_inputs_seen": True,
         "status": "complete", "conditions": list(selected),
-        "budget_profile": budget.__dict__, "examples": [example.__dict__ for example in examples],
+        "model_lifetime": {
+            "strategy": ("single_shared_backbone" if runner_factory is not None
+                         and runner_factory.shared_backbone is not None
+                         else "sequential_condition_runner_leases"),
+            "max_live_condition_runners": 1,
+        },
+        "budget_profiles": [profile.__dict__ for profile in profiles],
+        "budget_profile": profiles[0].__dict__ if len(profiles) == 1 else None,
+        "examples": [example.__dict__ for example in examples],
+        "evaluation_dataset_snapshot": dataset_snapshot,
         "results": records, "condition_summaries": summaries,
         "expertise_metric": {"definition": "best-so-far staircase weighted AUC",
                               "anchor_generated_tokens": 3000,
+                              "input_compute_quantity": "mean generated tokens per example at each evaluation budget",
+                              "input_performance_quantity": "benchmark mean strict/lenient score at that budget",
+                              "below_anchor_points": "reported in the curve but excluded from expertise integration",
                               "manual_points_required": False},
         "elapsed_seconds": time.perf_counter() - started,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
@@ -277,9 +433,10 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
             "generated_tokens": "model output tokens generated by the root agent",
             "tool_calls": "typed tool actions attempted",
             "observation_bytes": "UTF-8 bytes after final tool-output truncation",
+            "total_latency_seconds": "per-example wall-clock runner latency; backend measurement preferred and harness timer used otherwise",
             "prefill_latency_seconds": "backend-reported initial prompt forward latency, unavailable when not exposed",
             "decode_latency_seconds": "backend-reported continuation latency, unavailable when not exposed",
-            "peak_memory_bytes": "backend-reported accelerator peak allocation, null on CPU/unavailable backends",
+            "peak_memory_bytes": "maximum accelerator allocation after resetting peak statistics at the start of each example run; null on CPU/unavailable backends",
         },
         "provenance": provenance or {},
     }

@@ -1,5 +1,7 @@
 # Repair Round 2 report — 2026-09-11 UTC
 
+> Historical report. Round 3 supersedes its schema-v2, per-example expertise, corpus-exclusion, evaluation-dataset binding, and model-lifetime claims. See `docs/REPAIR_ROUND_3_REPORT.md` for the current contract.
+
 ## Status
 
 The infrastructure repairs are complete and the repository is ready for review. CPU/mock validation passes. The expensive experiment was intentionally not started: no full L=64 training, full-corpus mining, OpenClaw run, or official StudyBench evaluation was launched.

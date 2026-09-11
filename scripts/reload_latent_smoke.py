@@ -4,7 +4,7 @@ import argparse, json, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "src"))
 from latent_study.latent import load_qwen
-from latent_study.artifacts import provenance
+from latent_study.artifacts import ARTIFACT_SCHEMA_VERSION, provenance
 from latent_study.io import canonical_hash
 from latent_study.search import TOOL_SCHEMA_HASH
 
@@ -22,9 +22,13 @@ actual = wrapper.prefill_ids(reference["input_ids"].to(wrapper.prefix.device), u
                              memory_boundary=reference["memory_boundary"]).next_logits.detach().float().cpu()
 error = float((actual - reference["logits"]).abs().max())
 result = {"fresh_process": True, "max_abs_error": error, "tolerance": args.tolerance,
-          "passed": error <= args.tolerance, "artifact_schema_version": 2,
+          "passed": error <= args.tolerance, "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
           "provenance": provenance(artifact_type="latent_reload_report",
                                    resolved_config_hash=canonical_hash(vars(args)),
+                                   protocol_config_hash=canonical_hash({
+                                       "protocol": "real_qwen_smoke_v1",
+                                       "model_revision": args.revision,
+                                       "latent_length": int(payload["length"])}),
                                    model_id="Qwen/Qwen3.5-9B",
                                    model_revision=args.revision or "unresolved",
                                    corpus_hash="real-smoke-only", tool_schema_hash=TOOL_SCHEMA_HASH,

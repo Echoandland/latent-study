@@ -11,7 +11,7 @@ from typing import Any, Iterable
 from .io import canonical_hash, sha256_bytes, write_json
 
 
-ARTIFACT_SCHEMA_VERSION = 2
+ARTIFACT_SCHEMA_VERSION = 3
 PROVENANCE_SUFFIX = ".provenance.json"
 SOURCE_PATHS = ("src", "scripts", "configs", "schemas", "pyproject.toml", "requirements.lock")
 INTEGRITY_FIELD = "artifact_sha256"
@@ -143,13 +143,104 @@ def artifact_content_hash(path: str | Path) -> str:
     return sha256_bytes(path.read_bytes())
 
 
-def dependency_descriptor(path: str | Path, *, name: str | None = None) -> dict:
+_CORPUS_DEPENDENCY_NAMES = {"corpus", "corpus_snapshot", "live_corpus"}
+_EVALUATION_DEPENDENCY_NAMES = {"evaluation", "evaluation_dataset", "evaluation_snapshot"}
+
+
+def _dependency_hash(path: Path, hash_kind: str) -> str:
+    if hash_kind == "corpus_snapshot":
+        from .corpus import corpus_snapshot_hash
+        return corpus_snapshot_hash(path)
+    if hash_kind == "evaluation_dataset_snapshot":
+        from .evaluation import evaluation_dataset_snapshot_hash
+        return evaluation_dataset_snapshot_hash(path)
+    if hash_kind != "artifact_content":
+        raise ArtifactCompatibilityError(f"unknown dependency hash kind: {hash_kind}")
+    return artifact_content_hash(path)
+
+
+def _embedded_provenance(path: Path) -> dict | None:
+    """Read dependency identity without treating its local path as identity."""
+    try:
+        if path.suffix == ".json":
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        elif path.suffix == ".jsonl":
+            candidate = sidecar_path(path)
+            payload = json.loads(candidate.read_text(encoding="utf-8")) if candidate.is_file() else None
+        elif path.suffix == ".pt":
+            import torch
+            payload = torch.load(path, map_location="cpu", weights_only=True)
+        else:
+            payload = None
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ImportError, RuntimeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    metadata = payload.get("provenance") if isinstance(payload.get("provenance"), dict) else payload
+    return metadata if isinstance(metadata, dict) and metadata.get("artifact_type") else None
+
+
+def _portable_path(path: Path, artifact_path: str | Path | None) -> tuple[str, str]:
+    if artifact_path is not None:
+        base = Path(artifact_path).resolve().parent
+        return Path(os.path.relpath(path, base)).as_posix(), "artifact"
+    root = repository_root()
+    try:
+        return path.relative_to(root).as_posix(), "repository"
+    except ValueError:
+        # Callers that create artifacts outside a checkout should pass
+        # artifact_path.  The adjacent-file fallback keeps old library-level
+        # fixtures portable rather than embedding a machine-specific path.
+        return path.name, "artifact"
+
+
+def dependency_descriptor(path: str | Path, *, name: str | None = None,
+                          artifact_path: str | Path | None = None,
+                          hash_kind: str | None = None) -> dict:
     path = Path(path).resolve()
-    return {"name": name or path.name, "path": str(path),
-            INTEGRITY_FIELD: artifact_content_hash(path)}
+    role = str(name or path.name)
+    if hash_kind is None:
+        if role in _CORPUS_DEPENDENCY_NAMES and path.is_dir():
+            hash_kind = "corpus_snapshot"
+        elif role in _EVALUATION_DEPENDENCY_NAMES:
+            hash_kind = "evaluation_dataset_snapshot"
+        else:
+            hash_kind = "artifact_content"
+    relative, path_base = _portable_path(path, artifact_path)
+    metadata = _embedded_provenance(path)
+    identity_view = None
+    artifact_type = ("corpus_snapshot" if hash_kind == "corpus_snapshot" else
+                     "evaluation_dataset_snapshot" if hash_kind == "evaluation_dataset_snapshot" else
+                     metadata.get("artifact_type") if metadata else
+                     "directory" if path.is_dir() else path.suffix.lstrip(".") or "file")
+    if metadata:
+        identity_view = {
+            key: metadata.get(key) for key in (
+                "artifact_schema_version", "artifact_type", INTEGRITY_FIELD,
+                "protocol_config_hash", "corpus_hash", "model_id", "model_revision",
+                "tokenizer_id", "tokenizer_revision", "tool_schema_hash")
+        }
+    return {"name": role, "path": relative, "path_base": path_base,
+            "hash_kind": hash_kind, "artifact_type": artifact_type,
+            "provenance_identity": canonical_hash(identity_view) if identity_view else None,
+            INTEGRITY_FIELD: _dependency_hash(path, hash_kind)}
 
 
-def _normalise_dependencies(dependencies: Iterable[Any] | None) -> list[dict]:
+def resolve_dependency_path(dependency: dict, *, artifact_path: str | Path | None = None,
+                            project_root: str | Path | None = None) -> Path:
+    relative = Path(str(dependency.get("path", "")))
+    if relative.is_absolute():
+        raise ArtifactCompatibilityError("absolute dependency paths are not portable")
+    path_base = dependency.get("path_base")
+    if path_base == "repository":
+        return (repository_root(project_root) / relative).resolve()
+    if path_base == "artifact" and artifact_path is not None:
+        return (Path(artifact_path).resolve().parent / relative).resolve()
+    raise ArtifactCompatibilityError("dependency path cannot be resolved without its declared portable base")
+
+
+def _normalise_dependencies(dependencies: Iterable[Any] | None, *,
+                            artifact_path: str | Path | None = None) -> list[dict]:
     out = []
     for dependency in dependencies or ():
         if isinstance(dependency, dict):
@@ -157,30 +248,39 @@ def _normalise_dependencies(dependencies: Iterable[Any] | None) -> list[dict]:
             path = item.get("path")
             if not path:
                 raise ArtifactCompatibilityError("dependency descriptor lacks path")
-            item.setdefault("name", Path(path).name)
-            item["path"] = str(Path(path).resolve())
-            item[INTEGRITY_FIELD] = item.get(INTEGRITY_FIELD) or artifact_content_hash(item["path"])
+            if not {"path_base", "hash_kind", "artifact_type", INTEGRITY_FIELD} <= set(item):
+                item = dependency_descriptor(path, name=item.get("name"),
+                                             artifact_path=artifact_path,
+                                             hash_kind=item.get("hash_kind"))
+            else:
+                item.setdefault("name", Path(path).name)
+                item.setdefault("provenance_identity", None)
+                item["path"] = Path(str(path)).as_posix()
         elif isinstance(dependency, (tuple, list)) and len(dependency) == 2:
-            item = dependency_descriptor(dependency[1], name=str(dependency[0]))
+            item = dependency_descriptor(dependency[1], name=str(dependency[0]),
+                                         artifact_path=artifact_path)
         else:
-            item = dependency_descriptor(dependency)
+            item = dependency_descriptor(dependency, artifact_path=artifact_path)
         out.append(item)
     return sorted(out, key=lambda item: (str(item.get("name", "")), str(item["path"])))
 
 
-def provenance(*, artifact_type: str, resolved_config_hash: str, model_id: str,
+def provenance(*, artifact_type: str, resolved_config_hash: str, protocol_config_hash: str,
+               model_id: str,
                model_revision: str, corpus_hash: str, tool_schema_hash: str,
                command: str, cli_overrides: dict, repository_root: str | Path | None = None,
                dependencies: Iterable[Any] | None = None,
-               tokenizer_id: str | None = None, tokenizer_revision: str | None = None) -> dict:
+               tokenizer_id: str | None = None, tokenizer_revision: str | None = None,
+               artifact_path: str | Path | None = None) -> dict:
     return {
         "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
         "artifact_type": artifact_type,
         "repository_commit": repository_commit(repository_root),
         "source_tree_hash": source_tree_hash(repository_root),
         INTEGRITY_FIELD: None,
-        DEPENDENCY_FIELD: _normalise_dependencies(dependencies),
+        DEPENDENCY_FIELD: _normalise_dependencies(dependencies, artifact_path=artifact_path),
         "resolved_config_hash": resolved_config_hash,
+        "protocol_config_hash": protocol_config_hash,
         "model_id": model_id,
         "model_revision": model_revision,
         "corpus_hash": corpus_hash,
@@ -199,9 +299,9 @@ def sidecar_path(path: str | Path) -> Path:
 def write_sidecar(path: str | Path, metadata: dict, *, dependencies: Iterable[Any] | None = None) -> Path:
     metadata = dict(metadata)
     if dependencies is not None:
-        metadata[DEPENDENCY_FIELD] = _normalise_dependencies(dependencies)
+        metadata[DEPENDENCY_FIELD] = _normalise_dependencies(dependencies, artifact_path=path)
     elif DEPENDENCY_FIELD in metadata:
-        metadata[DEPENDENCY_FIELD] = _normalise_dependencies(metadata[DEPENDENCY_FIELD])
+        metadata[DEPENDENCY_FIELD] = _normalise_dependencies(metadata[DEPENDENCY_FIELD], artifact_path=path)
     metadata[INTEGRITY_FIELD] = artifact_content_hash(path)
     destination = sidecar_path(path)
     write_json(destination, metadata)
@@ -210,6 +310,7 @@ def write_sidecar(path: str | Path, metadata: dict, *, dependencies: Iterable[An
 
 def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
                         resolved_config_hash: str | None = None,
+                        protocol_config_hash: str | None = None,
                         model_id: str | None = None, model_revision: str | None = None,
                         corpus_hash: str | None = None,
                         tool_schema_hash: str | None = None,
@@ -223,7 +324,8 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
     if not isinstance(metadata, dict):
         raise ArtifactCompatibilityError("artifact provenance must be an object")
     required = {"artifact_schema_version", "artifact_type", "repository_commit",
-                "source_tree_hash", "resolved_config_hash", "model_id", "model_revision",
+                "source_tree_hash", "resolved_config_hash", "protocol_config_hash",
+                "model_id", "model_revision",
                 "corpus_hash", "tool_schema_hash", "command", "cli_overrides",
                 INTEGRITY_FIELD, DEPENDENCY_FIELD}
     missing = sorted(required - set(metadata))
@@ -232,11 +334,13 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
     if metadata["artifact_schema_version"] != ARTIFACT_SCHEMA_VERSION:
         raise ArtifactCompatibilityError("unsupported artifact schema version")
     string_fields = ("artifact_type", "repository_commit", "source_tree_hash",
-                     "resolved_config_hash", "model_id", "model_revision",
+                     "resolved_config_hash", "protocol_config_hash", "model_id", "model_revision",
                      "corpus_hash", "tool_schema_hash", "command")
     if any(not isinstance(metadata.get(field), str) or not metadata[field].strip()
            for field in string_fields):
         raise ArtifactCompatibilityError("artifact provenance has an empty or non-string identity field")
+    if not _SHA256_RE.fullmatch(metadata["protocol_config_hash"]):
+        raise ArtifactCompatibilityError("artifact protocol_config_hash is not a SHA256")
     if not isinstance(metadata.get("cli_overrides"), dict):
         raise ArtifactCompatibilityError("artifact cli_overrides must be an object")
     if (not isinstance(metadata[INTEGRITY_FIELD], str)
@@ -248,6 +352,14 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
         if (not isinstance(dependency, dict)
                 or not isinstance(dependency.get("name"), str) or not dependency["name"].strip()
                 or not isinstance(dependency.get("path"), str) or not dependency["path"].strip()
+                or Path(dependency.get("path", "")).is_absolute()
+                or dependency.get("path_base") not in {"artifact", "repository"}
+                or dependency.get("hash_kind") not in {
+                    "artifact_content", "corpus_snapshot", "evaluation_dataset_snapshot"}
+                or not isinstance(dependency.get("artifact_type"), str)
+                or (dependency.get("provenance_identity") is not None
+                    and (not isinstance(dependency.get("provenance_identity"), str)
+                         or not _SHA256_RE.fullmatch(dependency["provenance_identity"])))
                 or not isinstance(dependency.get(INTEGRITY_FIELD), str)
                 or not _SHA256_RE.fullmatch(dependency[INTEGRITY_FIELD])):
             raise ArtifactCompatibilityError("artifact dependency descriptor is malformed")
@@ -257,6 +369,7 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
     if require_current_source and metadata["source_tree_hash"] != source_tree_hash(repository_root):
         raise ArtifactCompatibilityError("artifact source-tree hash is stale")
     expected = {"artifact_type": artifact_type, "resolved_config_hash": resolved_config_hash,
+                "protocol_config_hash": protocol_config_hash,
                 "model_id": model_id, "model_revision": model_revision,
                 "corpus_hash": corpus_hash, "tool_schema_hash": tool_schema_hash,
                 "tokenizer_id": tokenizer_id, "tokenizer_revision": tokenizer_revision}
@@ -267,7 +380,7 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
         actual = artifact_content_hash(artifact_path)
         if metadata[INTEGRITY_FIELD] != actual:
             raise ArtifactCompatibilityError("artifact content SHA256 mismatch")
-    expected_dependencies = _normalise_dependencies(dependencies)
+    expected_dependencies = _normalise_dependencies(dependencies, artifact_path=artifact_path)
     if expected_dependencies:
         actual_dependencies = _normalise_dependencies(metadata[DEPENDENCY_FIELD])
         if actual_dependencies != expected_dependencies:
@@ -276,13 +389,19 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
     for dependency in metadata[DEPENDENCY_FIELD]:
         if dependency.get("name") in skipped_dependencies:
             continue
-        path = Path(dependency.get("path", ""))
-        if not path.is_absolute():
-            path = globals()["repository_root"](repository_root) / path
+        path = resolve_dependency_path(dependency, artifact_path=artifact_path,
+                                       project_root=repository_root)
         if not path.exists():
             raise ArtifactCompatibilityError(f"artifact dependency is missing: {path}")
-        if dependency.get(INTEGRITY_FIELD) != artifact_content_hash(path):
+        if dependency.get(INTEGRITY_FIELD) != _dependency_hash(path, dependency["hash_kind"]):
             raise ArtifactCompatibilityError(f"artifact dependency content SHA256 mismatch: {path}")
+        current = dependency_descriptor(path, name=dependency["name"], artifact_path=artifact_path,
+                                        hash_kind=dependency["hash_kind"])
+        if dependency.get("artifact_type") != current.get("artifact_type"):
+            raise ArtifactCompatibilityError(f"artifact dependency type mismatch: {path}")
+        if (dependency.get("provenance_identity") is not None
+                and dependency.get("provenance_identity") != current.get("provenance_identity")):
+            raise ArtifactCompatibilityError(f"artifact dependency provenance identity mismatch: {path}")
     return metadata
 
 

@@ -25,6 +25,76 @@ REQUIRED_PATHS = (
 )
 
 
+PROTOCOL_CONFIG_SCHEMA_VERSION = 1
+
+
+def protocol_config_view(config: dict) -> dict:
+    """Return the canonical cross-command scientific compatibility view.
+
+    This projection deliberately excludes filesystem locations, output paths,
+    worker assignment, batch sizing, retry counts, and other command-local
+    execution controls.  Those remain bound by ``resolved_config_hash`` and
+    artifact dependencies, but do not make an otherwise identical experiment
+    incompatible merely because it was run from another checkout or with a
+    different sharding arrangement.
+    """
+    corpus = config.get("corpus", {})
+    model = config.get("model", {})
+    latent = config.get("latent", {})
+    tools = config.get("tools", {})
+    candidate = config.get("candidate_generation", {})
+    reward = config.get("reward", {})
+    objective = config.get("objective", {})
+    decoding = config.get("decoding", {})
+    root_agent = config.get("root_agent", {})
+    evaluation = config.get("evaluation", {})
+    return {
+        "schema_version": PROTOCOL_CONFIG_SCHEMA_VERSION,
+        "protocol": config.get("protocol"),
+        "model": {key: model.get(key) for key in ("id", "revision", "frozen", "dtype")},
+        "corpus": {"revision": corpus.get("revision")},
+        "memory": {
+            "placement": "after_system_and_tool_instructions_before_user_history",
+            "serializer_revision": "shared_memory_slot_v1",
+            "latent_length": latent.get("length"),
+            "latent_init_std": latent.get("init_std"),
+        },
+        "candidate_generation": {
+            key: candidate.get(key)
+            for key in ("n", "source", "do_sample", "temperature", "top_p", "max_new_tokens")
+        },
+        "tools": {
+            key: tools.get(key)
+            for key in ("interface", "max_results", "max_bytes_per_hit", "max_total_bytes",
+                        "grep_context_lines", "max_query_chars")
+        },
+        "reward": reward,
+        "objective": {
+            key: objective.get(key)
+            for key in ("beta", "preference_delta", "rank_margin", "query_weight",
+                        "ranking_weight", "gradient_balance")
+        },
+        "root_agent": {
+            "prompt_revision": root_agent.get("prompt_revision"),
+        },
+        "decoding": {
+            key: decoding.get(key)
+            for key in ("do_sample", "temperature", "max_new_tokens_per_turn")
+        },
+        "evaluation": {
+            "conditions": evaluation.get("conditions"),
+            "memory_frozen": evaluation.get("memory_frozen"),
+            "same_tools_and_budgets": evaluation.get("same_tools_and_budgets"),
+            "budgets": evaluation.get("budgets"),
+        },
+    }
+
+
+def protocol_config_hash(config: dict) -> str:
+    """Hash only the centralized cross-command compatibility projection."""
+    return canonical_hash(protocol_config_view(config))
+
+
 def _get(config: dict, path: str):
     value = config
     for key in path.split("."): value = value[key]
@@ -48,7 +118,10 @@ def load_config(path: str | Path) -> dict:
         raise ValueError("unsupported behavior-changing configuration: " + ", ".join(incompatible))
     resolved = copy.deepcopy(config)
     resolved["config_source"] = str(Path(path).resolve())
-    resolved["config_hash"] = canonical_hash(config)
+    resolved["protocol_config_hash"] = protocol_config_hash(config)
+    resolved["resolved_config_hash"] = canonical_hash(config)
+    # Compatibility alias for callers predating the explicit distinction.
+    resolved["config_hash"] = resolved["resolved_config_hash"]
     return resolved
 
 
