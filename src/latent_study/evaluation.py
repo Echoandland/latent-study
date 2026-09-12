@@ -149,11 +149,41 @@ def budgets_from_config(config: Mapping[str, Any], names: Iterable[str] | None =
     if len(set(selected)) != len(selected):
         raise ValueError("evaluation budget names must not be duplicated")
     profiles = tuple(budget_from_config(config, name) for name in selected)
+    validate_evaluation_budget_reachability(
+        profiles, int(config.get("decoding", {}).get("max_new_tokens_per_turn", 0)))
     expertise_config = config.get("evaluation", {}).get("expertise", {})
     if expertise_config.get("require_anchor_coverage", False):
         validate_expertise_budget_coverage(
             profiles, float(expertise_config.get("anchor_generated_tokens", EXPERTISE_ANCHOR_TOKENS)))
     return profiles
+
+
+def validate_evaluation_budget_reachability(
+        profiles: Iterable[EvaluationBudgetProfile], max_new_tokens_per_turn: int) -> dict[str, dict]:
+    """Validate caps against the exact RootAgent maximum-turn control flow.
+
+    A valid tool action can continue once per allowed tool call. After the last
+    tool call, one final model generation can answer or terminate. Therefore
+    the maximum number of generation turns is ``max_tool_calls + 1``.
+    """
+    if max_new_tokens_per_turn <= 0:
+        raise ValueError("max_new_tokens_per_turn must be positive")
+    report = {}
+    for profile in profiles:
+        generation_turns = profile.max_tool_calls + 1
+        reachable_tokens = generation_turns * max_new_tokens_per_turn
+        if profile.max_output_tokens > reachable_tokens:
+            raise ValueError(
+                f"evaluation budget {profile.name} declares {profile.max_output_tokens} generated tokens "
+                f"but RootAgent can reach at most {reachable_tokens} "
+                f"({generation_turns} generations x {max_new_tokens_per_turn} tokens/turn)")
+        report[profile.name] = {
+            "maximum_generation_turns": generation_turns,
+            "max_new_tokens_per_turn": max_new_tokens_per_turn,
+            "maximum_reachable_generated_tokens": reachable_tokens,
+            "declared_generated_token_budget": profile.max_output_tokens,
+        }
+    return report
 
 
 def validate_expertise_budget_coverage(
@@ -329,7 +359,8 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
                    provenance: dict | None = None, fair_conditions: list[Any] | None = None,
                    dataset_snapshot: dict | None = None,
                    expertise_anchor_tokens: float = EXPERTISE_ANCHOR_TOKENS,
-                   require_expertise_budget_coverage: bool = True) -> dict:
+                   require_expertise_budget_coverage: bool = True,
+                   max_new_tokens_per_turn: int | None = None) -> dict:
     """Run all MVP conditions and emit an expertise-ready structured artifact."""
     selected = tuple(conditions)
     if selected != MVP_CONDITIONS:
@@ -345,6 +376,8 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
         raise ValueError("evaluation budget names must be unique")
     if require_expertise_budget_coverage:
         validate_expertise_budget_coverage(profiles, expertise_anchor_tokens)
+    reachability = (validate_evaluation_budget_reachability(profiles, max_new_tokens_per_turn)
+                    if max_new_tokens_per_turn is not None else None)
     if fair_conditions is not None:
         from .agent import assert_fair_conditions
         assert_fair_conditions(fair_conditions)
@@ -439,6 +472,7 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
             "max_live_condition_runners": 1,
         },
         "budget_profiles": [profile.__dict__ for profile in profiles],
+        "budget_reachability": reachability,
         "budget_profile": profiles[0].__dict__ if len(profiles) == 1 else None,
         "examples": [example.__dict__ for example in examples],
         "evaluation_dataset_snapshot": dataset_snapshot,

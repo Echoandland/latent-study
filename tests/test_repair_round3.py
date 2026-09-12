@@ -351,9 +351,15 @@ def test_peek_cli_uses_manifest_hash_before_model_setup(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "_reject_evaluation_paths", lambda *_args: None)
     monkeypatch.setattr(cli, "_read_manifest", lambda *_args, **_kwargs: manifest_one)
     monkeypatch.setattr(cli, "_verify_live_manifest", lambda _manifest: None)
+    monkeypatch.setattr(cli, "_resolve_model_files", lambda *_args, **_kwargs: {
+        "resolved_path": str(tmp_path), "model_snapshot_sha256": "1" * 64,
+        "tokenizer_snapshot_sha256": "2" * 64})
 
     def read_records(_path, **kwargs):
         seen["expected_corpus_hash"] = kwargs.get("corpus_hash")
+        assert kwargs["require_production"] is True
+        assert kwargs["model_snapshot_sha256"] == "1" * 64
+        assert kwargs["tokenizer_snapshot_sha256"] == "2" * 64
         return records_two
 
     monkeypatch.setattr(cli, "_read_records", read_records)

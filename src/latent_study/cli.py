@@ -17,6 +17,47 @@ from .records import (coverage_report, generate_coverage_records,
 from .serde import record_from_dict, unit_from_dict
 
 
+def _assert_production_bank_metadata(metadata: dict, *, model_snapshot_sha256: str | None,
+                                     tokenizer_snapshot_sha256: str | None) -> None:
+    from .artifacts import ArtifactCompatibilityError
+    if metadata.get("study_bank_mode") != "production_frozen_base":
+        raise ArtifactCompatibilityError(
+            "production consumers require a production_frozen_base study record bank")
+    if not model_snapshot_sha256 or not tokenizer_snapshot_sha256:
+        raise ArtifactCompatibilityError(
+            "production consumer did not supply actual model/tokenizer snapshot identities")
+    for field, expected in (("model_snapshot_sha256", model_snapshot_sha256),
+                            ("tokenizer_snapshot_sha256", tokenizer_snapshot_sha256)):
+        actual = metadata.get(field)
+        if not isinstance(actual, str) or not actual:
+            raise ArtifactCompatibilityError(f"production study record bank lacks {field}")
+        if actual != expected:
+            raise ArtifactCompatibilityError(f"production study record bank {field} mismatch")
+
+
+def _assert_memory_uses_production_bank(metadata: dict, artifact_path, *, config: dict,
+                                        corpus_hash: str, model_snapshot_sha256: str,
+                                        tokenizer_snapshot_sha256: str) -> None:
+    """Verify the record-bank parent of a production trained/PEEK memory."""
+    from .artifacts import (ArtifactCompatibilityError, read_sidecar,
+                            resolve_dependency_path)
+    from .search import TOOL_SCHEMA_HASH
+    parents = [item for item in metadata.get("dependencies", ())
+               if item.get("name") == "study_record_bank"]
+    if len(parents) != 1:
+        raise ArtifactCompatibilityError(
+            "production memory must bind exactly one study_record_bank dependency")
+    path = resolve_dependency_path(parents[0], artifact_path=artifact_path)
+    bank = read_sidecar(
+        path, artifact_type="study_record_bank", model_id=config["model"]["id"],
+        model_revision=config["model"]["revision"],
+        protocol_config_hash=config["protocol_config_hash"], corpus_hash=corpus_hash,
+        tool_schema_hash=TOOL_SCHEMA_HASH)
+    _assert_production_bank_metadata(
+        bank, model_snapshot_sha256=model_snapshot_sha256,
+        tokenizer_snapshot_sha256=tokenizer_snapshot_sha256)
+
+
 def _read_manifest(path, *, require_current: bool = False, config: dict | None = None):
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     if require_current:
@@ -39,15 +80,23 @@ def _read_manifest(path, *, require_current: bool = False, config: dict | None =
 
 
 def _read_records(path, *, require_current: bool = False, config: dict | None = None,
-                  corpus_hash: str | None = None):
+                  corpus_hash: str | None = None,
+                  model_snapshot_sha256: str | None = None,
+                  tokenizer_snapshot_sha256: str | None = None,
+                  require_production: bool = False):
     if require_current:
         from .artifacts import read_sidecar
         from .search import TOOL_SCHEMA_HASH
-        read_sidecar(path, artifact_type="study_record_bank",
-                     model_id=config["model"]["id"] if config else None,
-                     model_revision=config["model"]["revision"] if config else None,
-                     protocol_config_hash=(config.get("protocol_config_hash") if config else None),
-                     corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH)
+        metadata = read_sidecar(
+            path, artifact_type="study_record_bank",
+            model_id=config["model"]["id"] if config else None,
+            model_revision=config["model"]["revision"] if config else None,
+            protocol_config_hash=(config.get("protocol_config_hash") if config else None),
+            corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH)
+        if require_production:
+            _assert_production_bank_metadata(
+                metadata, model_snapshot_sha256=model_snapshot_sha256,
+                tokenizer_snapshot_sha256=tokenizer_snapshot_sha256)
     return [record_from_dict(json.loads(line)) for line in Path(path).read_text(encoding="utf-8").splitlines() if line]
 
 
@@ -285,6 +334,10 @@ def command_records(args):
                             tokenizer_revision=candidate_tokenizer_revision,
                             model_snapshot_sha256=model_snapshot_sha256,
                             tokenizer_snapshot_sha256=tokenizer_snapshot_sha256)
+    bank_meta["study_bank_mode"] = (
+        "production_frozen_base" if args.candidate_model and not args.shuffle_correspondence
+        else "synthetic_shuffled_correspondence_control" if args.shuffle_correspondence
+        else "synthetic_deterministic_smoke")
     bank_meta["shard"] = {"num_workers": args.num_workers, "worker_index": args.worker_index}
     write_sidecar(args.output, bank_meta)
     report = coverage_report(manifest, records)
@@ -345,8 +398,15 @@ def command_peek(args):
     manifest = _read_manifest(args.manifest, require_current=True, config=config)
     _verify_live_manifest(manifest)
     corpus_hash = manifest["corpus_hash"]
+    model_path = args.model or config["model"]["id"]
+    model_identity = config["model"]["id"]
+    revision = args.model_revision or config["model"]["revision"]
+    snapshot = _resolve_model_files(model_path, revision, local_files_only=args.local_files_only)
     records = _read_records(args.records, require_current=True, config=config,
-                            corpus_hash=corpus_hash)
+                            corpus_hash=corpus_hash,
+                            model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                            tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"],
+                            require_production=True)
     from .isolation import contamination_attestation, validate_study_bank
     validate_study_bank(records, corpus_hash)
     audit_path = getattr(args, "contamination_audit", None)
@@ -355,10 +415,6 @@ def command_peek(args):
     audit = _read_contamination_audit(audit_path, config=config)
     _assert_audit_covers(audit, [args.records, manifest["root"]])
     if args.max_records is not None: records = records[:args.max_records]
-    model_path = args.model or config["model"]["id"]
-    model_identity = config["model"]["id"]
-    revision = args.model_revision or config["model"]["revision"]
-    snapshot = _resolve_model_files(model_path, revision, local_files_only=args.local_files_only)
     resolved_model_path = snapshot["resolved_path"]
     tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(resolved_model_path, device_map=args.device,
@@ -402,8 +458,14 @@ def command_train(args):
     from .train import train
     manifest = _read_manifest(args.manifest, require_current=True, config=config)
     _verify_live_manifest(manifest)
+    model_path = args.model or config["model"]["id"]
+    revision = args.model_revision or config["model"]["revision"]
+    snapshot = _resolve_model_files(model_path, revision)
     records = _read_records(args.records, require_current=True, config=config,
-                            corpus_hash=manifest["corpus_hash"])
+                            corpus_hash=manifest["corpus_hash"],
+                            model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                            tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"],
+                            require_production=True)
     from .isolation import contamination_attestation, validate_study_bank
     validate_study_bank(records, manifest["corpus_hash"])
     if args.max_records is not None: records = records[:args.max_records]
@@ -428,9 +490,6 @@ def command_train(args):
     _assert_audit_covers(audit, [args.records, manifest["root"]])
     seed = _pick(args.seed, config, "seed"); torch.manual_seed(seed)
     if torch.cuda.is_available(): torch.cuda.manual_seed_all(seed)
-    model_path = args.model or config["model"]["id"]
-    revision = args.model_revision or config["model"]["revision"]
-    snapshot = _resolve_model_files(model_path, revision)
     prefix = load_qwen(snapshot["resolved_path"], length=_pick(args.length, config, "latent", "length"),
                        dtype=args.dtype or config["model"]["dtype"], revision=revision,
                        device=args.device, init_std=config["latent"]["init_std"])
@@ -599,8 +658,8 @@ def command_merge_records(args):
         raise ValueError("missing worker shard index")
     comparable = ("protocol_config_hash", "model_id", "model_revision",
                   "model_snapshot_sha256", "tokenizer_snapshot_sha256",
-                  "corpus_hash", "tool_schema_hash")
-    if any(any(meta[field] != metas[0][field] for field in comparable) for meta in metas[1:]):
+                  "corpus_hash", "tool_schema_hash", "study_bank_mode")
+    if any(any(meta.get(field) != metas[0].get(field) for field in comparable) for meta in metas[1:]):
         raise ValueError("worker shard corpus/config/model/tool mismatch")
     record_ids = [row["record_id"] for row in rows]
     rows.sort(key=lambda row: row["record_id"])
@@ -649,6 +708,10 @@ def command_validate_conditions(args):
         if not all(pair):
             raise ValueError(f"{name} lacks actual model/tokenizer snapshot identity")
         snapshot_pairs.add(pair)
+        if name == "trained_latent_L64":
+            _assert_memory_uses_production_bank(
+                metadata, path, config=config, corpus_hash=corpus_hash,
+                model_snapshot_sha256=pair[0], tokenizer_snapshot_sha256=pair[1])
         if (payload.get("length") != config["latent"]["length"]
                 or payload["prefix"].shape[0] != config["latent"]["length"]
                 or payload.get("hidden_size") != payload["prefix"].shape[1]):
@@ -669,6 +732,9 @@ def command_validate_conditions(args):
         if not all(pair):
             raise ValueError(f"{name} lacks actual model/tokenizer snapshot identity")
         snapshot_pairs.add(pair)
+        _assert_memory_uses_production_bank(
+            metadata, path, config=config, corpus_hash=corpus_hash,
+            model_snapshot_sha256=pair[0], tokenizer_snapshot_sha256=pair[1])
         assert_frozen_payload(payload)
         if payload.get("token_budget") != budget:
             raise ValueError(f"{name} budget mismatch")
@@ -928,6 +994,12 @@ def command_evaluate(args):
         verify_memory_contamination_binding(
             payload, path, evaluation_dataset_sha256=dataset_snapshot["sha256"],
             protocol_config_hash=config["protocol_config_hash"])
+        if name != "random_latent_L64":
+            _assert_memory_uses_production_bank(
+                payload["provenance"], path, config=config,
+                corpus_hash=manifest["corpus_hash"],
+                model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
         memory_payloads[name] = payload
 
     condition_specs = {
@@ -1003,7 +1075,9 @@ def command_evaluate(args):
                                 expertise_anchor_tokens=float(config["evaluation"].get(
                                     "expertise", {}).get("anchor_generated_tokens", 3000)),
                                 require_expertise_budget_coverage=bool(config["evaluation"].get(
-                                    "expertise", {}).get("require_anchor_coverage", True)))
+                                    "expertise", {}).get("require_anchor_coverage", True)),
+                                max_new_tokens_per_turn=int(
+                                    config["decoding"]["max_new_tokens_per_turn"]))
     finally:
         # These are the only long-lived model references.  Condition agents are
         # already gone before this final cleanup.

@@ -219,7 +219,7 @@ def dependency_descriptor(path: str | Path, *, name: str | None = None,
                 "artifact_schema_version", "artifact_type", INTEGRITY_FIELD,
                 "protocol_config_hash", "corpus_hash", "model_id", "model_revision",
                 "tokenizer_id", "tokenizer_revision", "model_snapshot_sha256",
-                "tokenizer_snapshot_sha256", "tool_schema_hash")
+                "tokenizer_snapshot_sha256", "tool_schema_hash", "study_bank_mode")
         }
     return {"name": role, "path": relative, "path_base": path_base,
             "hash_kind": hash_kind, "artifact_type": artifact_type,

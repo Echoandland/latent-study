@@ -1,5 +1,7 @@
 # Repair Round 3.1 report — 2026-09-12 UTC
 
+> Historical report. Repair Round 3.1.1 supersedes its claim that anchor-spanning configured caps alone establish runtime reachability. See `docs/REPAIR_ROUND_3_1_1_REPORT.md` for the current budget and study-bank-consumer gates.
+
 ## Status
 
 The narrowly scoped Round 3.1 infrastructure repairs are complete in the working tree. Feasible CPU/mock validation passes: **62 passed, 0 failed, 0 skipped**. No full L=64 training, official benchmark evaluation, or expensive real-model/PEEK run was performed.
