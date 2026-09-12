@@ -50,8 +50,11 @@ def test_protocol_config_projection_separates_scientific_and_local_fields(tmp_pa
     original = protocol_config_hash(config)
     local_change = copy.deepcopy(config)
     local_change["output_path"] = str(tmp_path / "elsewhere" / "result.json")
-    local_change["training"]["batch_size"] = 99
     assert protocol_config_hash(local_change) == original
+
+    training_change = copy.deepcopy(config)
+    training_change["training"]["batch_size"] = 99
+    assert protocol_config_hash(training_change) != original
 
     scientific_change = copy.deepcopy(config)
     scientific_change["model"]["revision"] = "different-revision"
@@ -203,7 +206,7 @@ def test_evaluation_is_sequential_and_expertise_uses_budget_aggregates(tmp_path)
     dataset.write_text("".join(json.dumps({"id": f"e{index}", "question": "Q"}) + "\n"
                                for index in range(4)), encoding="utf-8")
     examples = load_evaluation_dataset(dataset)
-    budgets = (EvaluationBudgetProfile("direct", 0, 5000, 100),
+    budgets = (EvaluationBudgetProfile("direct", 0, 3000, 100),
                EvaluationBudgetProfile("max5", 5, 5000, 100))
     shared_backbone = object()
     state = {"live": 0, "max_live": 0, "built": 0, "released": 0}
@@ -256,10 +259,10 @@ def test_evaluation_is_sequential_and_expertise_uses_budget_aggregates(tmp_path)
     assert direct["compute"]["generated_tokens"]["mean_per_example"] == 1000
     assert direct["compute"]["generated_tokens"]["total"] == 4000
     assert len(summary["performance_vs_compute"]["strict"]) == 2
-    # Four examples at 1000 tokens are one 1000-token aggregate point, not
-    # four expertise points or a synthetic 4000-token point.
-    assert summary["expertise_input_points"]["strict"] == [(4000.0, 0.75)]
-    assert summary["expertise_strict"] == pytest.approx(0.75 * 3000 / 4000)
+    # Four examples form one score at each configured per-example generation
+    # budget; actual total/mean generation never becomes the x coordinate.
+    assert summary["expertise_input_points"]["strict"] == [(3000.0, 0.25), (5000.0, 0.75)]
+    assert summary["expertise_strict"] == pytest.approx(0.25 * (1 - 3000 / 5000) + 0.75 * 3000 / 5000)
 
 
 def test_cuda_peak_memory_is_reset_and_read_within_each_agent_run(tmp_path, monkeypatch):

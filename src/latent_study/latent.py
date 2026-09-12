@@ -216,6 +216,8 @@ class SoftPrefixLM:
              expected_model_revision: str | None = None,
              expected_tokenizer_id: str | None = None,
              expected_tokenizer_revision: str | None = None,
+             expected_model_snapshot_sha256: str | None = None,
+             expected_tokenizer_snapshot_sha256: str | None = None,
              expected_protocol_config_hash: str | None = None,
              expected_phase: str = "frozen_before_evaluation") -> dict:
         import torch
@@ -244,7 +246,9 @@ class SoftPrefixLM:
                                 corpus_hash=expected_corpus_hash,
                                 protocol_config_hash=expected_protocol_config_hash,
                                 tokenizer_id=expected_tokenizer_id,
-                                tokenizer_revision=expected_tokenizer_revision)
+                                tokenizer_revision=expected_tokenizer_revision,
+                                model_snapshot_sha256=expected_model_snapshot_sha256,
+                                tokenizer_snapshot_sha256=expected_tokenizer_snapshot_sha256)
         with torch.no_grad():
             self.prefix.copy_(payload["prefix"].to(dtype=self.prefix.dtype))
         return {k: v for k, v in payload.items() if k != "prefix"}

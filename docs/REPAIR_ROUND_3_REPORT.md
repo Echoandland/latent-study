@@ -1,5 +1,7 @@
 # Repair Round 3 report — 2026-09-11 UTC
 
+> Historical report. Repair Round 3.1 supersedes its expertise-axis, effective CLI configuration, local model snapshot, and manifest-root portability claims. See `docs/REPAIR_ROUND_3_1_REPORT.md`.
+
 ## Status
 
 Round 3 infrastructure and evaluation repairs are complete and pass the feasible CPU/mock gate: **58 passed, 0 failed, 0 skipped**. No full L=64 training, official StudyBench evaluation, or expensive PEEK study was run. The real-Qwen latent optimization and PEEK-64 quality failures remain blocked exactly as requested.

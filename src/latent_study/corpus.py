@@ -474,7 +474,9 @@ def build_manifest(root: str | Path) -> dict:
     verified_relations, relation_audit = _resolve_python_relations(root, units)
     corpus_hash = canonical_hash(
         [{"path": d["path"], "content_hash": d["content_hash"]} for d in documents])
-    return {"schema_version": 2, "root": str(root), "corpus_hash": corpus_hash,
+    return {"schema_version": 3, "root": str(root),
+            "root_semantics": "diagnostic_only_not_snapshot_identity",
+            "corpus_hash": corpus_hash,
             "documents": documents, "units": units, "excluded": excluded,
             "verified_relations": verified_relations, "relation_audit": relation_audit,
             "counts": {"documents": len(documents), "units": len(units),
@@ -491,11 +493,8 @@ def verify_manifest_against_live_corpus(manifest: dict, root: str | Path | None 
     :func:`build_manifest`, but it is never written back.  A mismatch is a hard
     error before a model or coding tool is initialized.
     """
-    expected_root = Path(manifest.get("root", "")).resolve()
-    live_root = Path(root or expected_root).resolve()
-    if live_root != expected_root:
-        raise CorpusIntegrityError(
-            f"live corpus root differs from frozen manifest: {live_root} != {expected_root}")
+    diagnostic_root = Path(manifest.get("root", "")).resolve()
+    live_root = Path(root).resolve() if root is not None else diagnostic_root
     if not live_root.is_dir():
         raise CorpusIntegrityError(f"frozen corpus root is missing: {live_root}")
     live = build_manifest(live_root)

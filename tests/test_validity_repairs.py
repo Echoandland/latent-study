@@ -112,12 +112,14 @@ def test_candidate_generation_receives_observation():
 def test_resolved_config_contains_every_execution_control():
     config = load_config("configs/dspy_mvp.json")
     assert config["candidate_generation"] == {"n": 4, "source": "frozen_base_without_latent",
-                                                "do_sample": True, "temperature": 0.8,
-                                                "top_p": 0.95, "max_new_tokens": 96}
+                                                    "do_sample": True, "temperature": 0.8,
+                                                    "top_p": 0.95, "max_new_tokens": 96,
+                                                    "dtype": "auto"}
     assert config["tools"]["interface"] == "pinned_local_coding_tools_v2"
     assert config["objective"] == {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0,
                                     "query_weight": 1.0, "ranking_weight": 1.0,
-                                    "gradient_balance": "rms_norm_sum"}
+                                    "gradient_balance": "rms_norm_sum",
+                                    "relevant_label": "A", "irrelevant_label": "B"}
     assert config["training"]["gradient_accumulation_steps"] == 1
     assert config["training"]["optimizer"] == "AdamW"
     assert config["tools"]["max_query_chars"] == 256

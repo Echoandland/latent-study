@@ -20,6 +20,7 @@ from latent_study.io import canonical_hash
 from latent_study.artifacts import ARTIFACT_SCHEMA_VERSION, artifact_payload_hash, provenance
 from latent_study.search import TOOL_SCHEMA_HASH
 from latent_study.latent import load_qwen
+from latent_study.snapshots import resolve_model_snapshot
 from latent_study.records import generate_coverage_records
 from latent_study.search import CodingTools
 from latent_study.train import train
@@ -36,6 +37,8 @@ def main():
     parser.add_argument("--objectives", choices=("all", "query_only", "rank_only", "combined"),
                         default="all")
     args = parser.parse_args()
+    snapshot = resolve_model_snapshot(args.model, args.revision or "unresolved",
+                                      local_files_only=True)
     smoke_config_hash = canonical_hash(vars(args))
     base_provenance = provenance(
         artifact_type="real_qwen_smoke", resolved_config_hash=smoke_config_hash,
@@ -45,8 +48,10 @@ def main():
         model_id="Qwen/Qwen3.5-9B", model_revision=args.revision or "unresolved",
         corpus_hash="real-smoke-only", tool_schema_hash=TOOL_SCHEMA_HASH,
         command="python scripts/real_model_smoke.py", cli_overrides=vars(args),
-        repository_root=ROOT, tokenizer_id=args.model,
-        tokenizer_revision=args.revision or "unresolved")
+        repository_root=ROOT, tokenizer_id="Qwen/Qwen3.5-9B",
+        tokenizer_revision=args.revision or "unresolved",
+        model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+        tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
 
     import torch
     torch.manual_seed(args.seed)
@@ -54,7 +59,8 @@ def main():
     started = time.perf_counter(); torch_device = torch.device(args.device)
     if args.device.startswith("cuda"):
         torch.cuda.set_device(torch_device); torch.cuda.reset_peak_memory_stats()
-    wrapper = load_qwen(args.model, length=args.length, dtype="bfloat16", revision=args.revision, device=args.device)
+    wrapper = load_qwen(snapshot["resolved_path"], length=args.length, dtype="bfloat16",
+                        revision=args.revision, device=args.device)
     loaded = time.perf_counter(); wrapper.assert_frozen()
     rel_id, irr_id = wrapper.validate_labels("A", "B")
 

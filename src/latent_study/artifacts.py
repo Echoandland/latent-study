@@ -11,7 +11,7 @@ from typing import Any, Iterable
 from .io import canonical_hash, sha256_bytes, write_json
 
 
-ARTIFACT_SCHEMA_VERSION = 3
+ARTIFACT_SCHEMA_VERSION = 4
 PROVENANCE_SUFFIX = ".provenance.json"
 SOURCE_PATHS = ("src", "scripts", "configs", "schemas", "pyproject.toml", "requirements.lock")
 INTEGRITY_FIELD = "artifact_sha256"
@@ -218,7 +218,8 @@ def dependency_descriptor(path: str | Path, *, name: str | None = None,
             key: metadata.get(key) for key in (
                 "artifact_schema_version", "artifact_type", INTEGRITY_FIELD,
                 "protocol_config_hash", "corpus_hash", "model_id", "model_revision",
-                "tokenizer_id", "tokenizer_revision", "tool_schema_hash")
+                "tokenizer_id", "tokenizer_revision", "model_snapshot_sha256",
+                "tokenizer_snapshot_sha256", "tool_schema_hash")
         }
     return {"name": role, "path": relative, "path_base": path_base,
             "hash_kind": hash_kind, "artifact_type": artifact_type,
@@ -271,6 +272,8 @@ def provenance(*, artifact_type: str, resolved_config_hash: str, protocol_config
                command: str, cli_overrides: dict, repository_root: str | Path | None = None,
                dependencies: Iterable[Any] | None = None,
                tokenizer_id: str | None = None, tokenizer_revision: str | None = None,
+               model_snapshot_sha256: str | None = None,
+               tokenizer_snapshot_sha256: str | None = None,
                artifact_path: str | Path | None = None) -> dict:
     return {
         "artifact_schema_version": ARTIFACT_SCHEMA_VERSION,
@@ -289,6 +292,8 @@ def provenance(*, artifact_type: str, resolved_config_hash: str, protocol_config
         "cli_overrides": cli_overrides,
         "tokenizer_id": tokenizer_id,
         "tokenizer_revision": tokenizer_revision,
+        "model_snapshot_sha256": model_snapshot_sha256,
+        "tokenizer_snapshot_sha256": tokenizer_snapshot_sha256,
     }
 
 
@@ -316,6 +321,8 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
                         tool_schema_hash: str | None = None,
                         tokenizer_id: str | None = None,
                         tokenizer_revision: str | None = None,
+                        model_snapshot_sha256: str | None = None,
+                        tokenizer_snapshot_sha256: str | None = None,
                         artifact_path: str | Path | None = None,
                         dependencies: Iterable[Any] | None = None,
                         skip_dependency_names: Iterable[str] | None = None,
@@ -327,6 +334,7 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
                 "source_tree_hash", "resolved_config_hash", "protocol_config_hash",
                 "model_id", "model_revision",
                 "corpus_hash", "tool_schema_hash", "command", "cli_overrides",
+                "model_snapshot_sha256", "tokenizer_snapshot_sha256",
                 INTEGRITY_FIELD, DEPENDENCY_FIELD}
     missing = sorted(required - set(metadata))
     if missing:
@@ -366,6 +374,10 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
     for field in ("tokenizer_id", "tokenizer_revision"):
         if field in metadata and metadata[field] is not None and not isinstance(metadata[field], str):
             raise ArtifactCompatibilityError(f"artifact {field} must be a string or null")
+    for field in ("model_snapshot_sha256", "tokenizer_snapshot_sha256"):
+        if metadata.get(field) is not None and (not isinstance(metadata[field], str)
+                                                or not _SHA256_RE.fullmatch(metadata[field])):
+            raise ArtifactCompatibilityError(f"artifact {field} must be a SHA256 or null")
     if require_current_source and metadata["source_tree_hash"] != source_tree_hash(repository_root):
         raise ArtifactCompatibilityError("artifact source-tree hash is stale")
     expected = {"artifact_type": artifact_type, "resolved_config_hash": resolved_config_hash,
@@ -373,6 +385,8 @@ def validate_provenance(metadata: dict, *, artifact_type: str | None = None,
                 "model_id": model_id, "model_revision": model_revision,
                 "corpus_hash": corpus_hash, "tool_schema_hash": tool_schema_hash,
                 "tokenizer_id": tokenizer_id, "tokenizer_revision": tokenizer_revision}
+    expected.update({"model_snapshot_sha256": model_snapshot_sha256,
+                     "tokenizer_snapshot_sha256": tokenizer_snapshot_sha256})
     for field, value in expected.items():
         if value is not None and metadata.get(field) != value:
             raise ArtifactCompatibilityError(f"artifact {field} mismatch")

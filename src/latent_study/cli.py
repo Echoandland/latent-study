@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import resource
 import sys
 import time
@@ -19,7 +20,7 @@ from .serde import record_from_dict, unit_from_dict
 def _read_manifest(path, *, require_current: bool = False, config: dict | None = None):
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     if require_current:
-        from .artifacts import validate_provenance
+        from .artifacts import resolve_dependency_path, validate_provenance
         from .search import TOOL_SCHEMA_HASH
         validate_provenance(raw.get("provenance", {}), artifact_type="corpus_manifest",
                             artifact_path=path,
@@ -27,6 +28,12 @@ def _read_manifest(path, *, require_current: bool = False, config: dict | None =
                             model_revision=config["model"]["revision"] if config else None,
                             protocol_config_hash=(config.get("protocol_config_hash") if config else None),
                             corpus_hash=raw.get("corpus_hash"), tool_schema_hash=TOOL_SCHEMA_HASH)
+        corpus_dependencies = [item for item in raw["provenance"].get("dependencies", ())
+                               if item.get("name") in {"corpus", "corpus_snapshot", "live_corpus"}]
+        if len(corpus_dependencies) != 1:
+            raise ValueError("corpus manifest must bind exactly one live corpus snapshot")
+        raw["diagnostic_original_root"] = raw.get("root")
+        raw["root"] = str(resolve_dependency_path(corpus_dependencies[0], artifact_path=path))
     raw["units"] = [unit_from_dict(u) for u in raw["units"]]
     return raw
 
@@ -45,20 +52,24 @@ def _read_records(path, *, require_current: bool = False, config: dict | None = 
 
 
 def _config(args, artifact):
-    from .config import load_config, save_resolved
-    config = load_config(args.config)
+    from .config import effective_config, load_config, protocol_config_hash, save_resolved
+    loaded = load_config(args.config)
     ignored = {"func", "command", "config", "output", "report", "manifest", "records", "probes",
                "coverage_report", "question", "memory", "worker_index", "corpus",
                "evaluation_root", "evaluation", "contamination_audit", "dataset", "input",
                "random_latent", "trained_latent", "peek64", "peek1024", "judge", "study"}
     overrides = {key: value for key, value in vars(args).items()
                  if key not in ignored and value is not None}
-    base = copy.deepcopy(config)
+    base = copy.deepcopy(loaded)
     for derived in ("config_hash", "config_source", "resolved_config_hash",
                     "protocol_config_hash", "command_config_hash", "cli_overrides"):
         base.pop(derived, None)
+    config = effective_config(base, getattr(args, "command", ""), vars(args))
+    command_hash = canonical_hash({"config": config, "cli_overrides": overrides})
+    config["config_source"] = str(Path(args.config).resolve())
     config["cli_overrides"] = overrides
-    config["resolved_config_hash"] = canonical_hash({"config": base, "cli_overrides": overrides})
+    config["protocol_config_hash"] = protocol_config_hash(config)
+    config["resolved_config_hash"] = command_hash
     config["command_config_hash"] = config["resolved_config_hash"]
     config["config_hash"] = config["resolved_config_hash"]
     save_resolved(config, artifact)
@@ -67,7 +78,8 @@ def _config(args, artifact):
 
 def _provenance(config, args, artifact_type: str, corpus_hash: str, *,
                 dependencies=(), tokenizer_id=None, tokenizer_revision=None,
-                contamination_audit=None, model_id=None, artifact_path=None) -> dict:
+                contamination_audit=None, model_id=None, artifact_path=None,
+                model_snapshot_sha256=None, tokenizer_snapshot_sha256=None) -> dict:
     from .artifacts import provenance
     from .search import TOOL_SCHEMA_HASH
     revision = (getattr(args, "model_revision", None)
@@ -82,10 +94,17 @@ def _provenance(config, args, artifact_type: str, corpus_hash: str, *,
                       command="latent-study " + getattr(args, "command", artifact_type),
                       cli_overrides=config.get("cli_overrides", {}), dependencies=dependencies,
                       tokenizer_id=tokenizer_id, tokenizer_revision=tokenizer_revision,
+                      model_snapshot_sha256=model_snapshot_sha256,
+                      tokenizer_snapshot_sha256=tokenizer_snapshot_sha256,
                       artifact_path=artifact_path or getattr(args, "output", None))
     if contamination_audit is not None:
         metadata["contamination_audit"] = dict(contamination_audit)
     return metadata
+
+
+def _resolve_model_files(reference, revision, *, local_files_only=False):
+    from .snapshots import resolve_model_snapshot
+    return resolve_model_snapshot(reference, revision, local_files_only=local_files_only)
 
 
 def _verify_live_manifest(manifest: dict):
@@ -156,6 +175,12 @@ def command_audit(args):
         raise IsolationError("corpus is outside every configured authorized root")
     started = time.perf_counter()
     manifest = build_manifest(args.corpus)
+    # Persist only an artifact-relative logical location. The dependency
+    # descriptor below is authoritative; no absolute checkout path enters the
+    # manifest content identity.
+    manifest["root"] = Path(os.path.relpath(Path(args.corpus).resolve(),
+                                             Path(args.output).resolve().parent)).as_posix()
+    manifest["root_semantics"] = "artifact_relative_diagnostic_only"
     manifest["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION
     manifest["provenance"] = _provenance(
         config, args, "corpus_manifest", manifest["corpus_hash"],
@@ -209,6 +234,7 @@ def command_records(args):
     candidate_revision = args.candidate_revision or config["model"]["revision"]
     candidate_tokenizer_id = config["model"]["id"] if args.candidate_model else None
     candidate_tokenizer_revision = candidate_revision if args.candidate_model else None
+    model_snapshot_sha256 = tokenizer_snapshot_sha256 = None
     limits = SearchLimits(_pick(args.max_results, config, "tools", "max_results"),
                           _pick(args.max_bytes_per_hit, config, "tools", "max_bytes_per_hit"),
                           _pick(args.max_total_bytes, config, "tools", "max_total_bytes"),
@@ -226,13 +252,16 @@ def command_records(args):
     if args.candidate_model:
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from .candidates import record_seed, replace_actions, sample_base_actions
-        tokenizer = AutoTokenizer.from_pretrained(args.candidate_model, revision=candidate_revision,
-                                                  local_files_only=args.local_files_only)
-        model = AutoModelForCausalLM.from_pretrained(args.candidate_model,
-                                                     revision=candidate_revision,
+        snapshot = _resolve_model_files(args.candidate_model, candidate_revision,
+                                        local_files_only=args.local_files_only)
+        candidate_path = snapshot["resolved_path"]
+        model_snapshot_sha256 = snapshot["model_snapshot_sha256"]
+        tokenizer_snapshot_sha256 = snapshot["tokenizer_snapshot_sha256"]
+        tokenizer = AutoTokenizer.from_pretrained(candidate_path, local_files_only=True)
+        model = AutoModelForCausalLM.from_pretrained(candidate_path,
                                                      device_map=args.candidate_device,
                                                      dtype=args.candidate_dtype,
-                                                     local_files_only=args.local_files_only)
+                                                     local_files_only=True)
         for parameter in model.parameters(): parameter.requires_grad_(False)
         model.eval()
         generation = config["candidate_generation"]
@@ -253,7 +282,9 @@ def command_records(args):
                             dependencies=[("corpus_manifest", args.manifest)],
                             model_id=config["model"]["id"],
                             tokenizer_id=candidate_tokenizer_id,
-                            tokenizer_revision=candidate_tokenizer_revision)
+                            tokenizer_revision=candidate_tokenizer_revision,
+                            model_snapshot_sha256=model_snapshot_sha256,
+                            tokenizer_snapshot_sha256=tokenizer_snapshot_sha256)
     bank_meta["shard"] = {"num_workers": args.num_workers, "worker_index": args.worker_index}
     write_sidecar(args.output, bank_meta)
     report = coverage_report(manifest, records)
@@ -286,6 +317,8 @@ def command_records(args):
         model_id=config["model"]["id"],
         tokenizer_id=candidate_tokenizer_id,
         tokenizer_revision=candidate_tokenizer_revision,
+        model_snapshot_sha256=model_snapshot_sha256,
+        tokenizer_snapshot_sha256=tokenizer_snapshot_sha256,
         artifact_path=args.coverage_report)
     write_json(args.coverage_report, report)
     write_json(args.probes, independent_probes(manifest["units"], records))
@@ -295,6 +328,8 @@ def command_records(args):
         model_id=config["model"]["id"],
         tokenizer_id=candidate_tokenizer_id,
         tokenizer_revision=candidate_tokenizer_revision,
+        model_snapshot_sha256=model_snapshot_sha256,
+        tokenizer_snapshot_sha256=tokenizer_snapshot_sha256,
         artifact_path=args.probes))
     print(json.dumps({"records": len(records), "output": args.output, "coverage": report}, indent=2))
 
@@ -323,9 +358,11 @@ def command_peek(args):
     model_path = args.model or config["model"]["id"]
     model_identity = config["model"]["id"]
     revision = args.model_revision or config["model"]["revision"]
-    tokenizer = AutoTokenizer.from_pretrained(model_path, revision=revision, local_files_only=args.local_files_only)
-    model = AutoModelForCausalLM.from_pretrained(model_path, revision=revision, device_map=args.device,
-                                                 dtype=config["model"]["dtype"], local_files_only=args.local_files_only)
+    snapshot = _resolve_model_files(model_path, revision, local_files_only=args.local_files_only)
+    resolved_model_path = snapshot["resolved_path"]
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(resolved_model_path, device_map=args.device,
+                                                 dtype=config["model"]["dtype"], local_files_only=True)
     for parameter in model.parameters(): parameter.requires_grad_(False)
     model.eval(); client = QwenPeekClient(
         model, tokenizer,
@@ -342,12 +379,15 @@ def command_peek(args):
                                  updates_per_source=_pick(args.updates_per_source, config, "training", "steps_per_source"),
                                  token_counter=token_counter, counter_name=counter_name,
                                  expected_corpus_hash=corpus_hash,
-                                 model_provenance={**config["model"], "id": model_path, "revision": revision},
+                                 model_provenance={**config["model"], "id": model_identity, "revision": revision,
+                                                   **snapshot},
         artifact_provenance=_provenance(
             config, args, "offline_peek_map", corpus_hash,
             dependencies=[("corpus_manifest", args.manifest), ("study_record_bank", args.records),
                           ("contamination_audit", audit_path)],
             tokenizer_id=model_identity, tokenizer_revision=revision,
+            model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+            tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"],
             contamination_audit=contamination_attestation(audit)))
     print(json.dumps({k: payload[k] for k in ("protocol", "update_count", "map_text_tokens", "map_text_bytes", "complete_artifact_bytes")}, indent=2))
 
@@ -390,7 +430,8 @@ def command_train(args):
     if torch.cuda.is_available(): torch.cuda.manual_seed_all(seed)
     model_path = args.model or config["model"]["id"]
     revision = args.model_revision or config["model"]["revision"]
-    prefix = load_qwen(model_path, length=_pick(args.length, config, "latent", "length"),
+    snapshot = _resolve_model_files(model_path, revision)
+    prefix = load_qwen(snapshot["resolved_path"], length=_pick(args.length, config, "latent", "length"),
                        dtype=args.dtype or config["model"]["dtype"], revision=revision,
                        device=args.device, init_std=config["latent"]["init_std"])
     model_identity = config["model"]["id"]
@@ -415,6 +456,8 @@ def command_train(args):
                                      *([("corpus_probe_bank", args.probes)] if args.probes else []),
                                      ("contamination_audit", audit_path)],
                        tokenizer_id=model_identity, tokenizer_revision=revision,
+                       model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                       tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"],
                        contamination_audit=contamination_attestation(audit)))
     report["provenance"] = _provenance(
         config, args, "latent_training_report", manifest["corpus_hash"],
@@ -422,6 +465,8 @@ def command_train(args):
                       *([("corpus_probe_bank", args.probes)] if args.probes else []),
                       ("trained_latent", args.output), ("contamination_audit", audit_path)],
         tokenizer_id=model_identity, tokenizer_revision=revision,
+        model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+        tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"],
         contamination_audit=contamination_attestation(audit),
         artifact_path=args.report)
     report["artifact_schema_version"] = ARTIFACT_SCHEMA_VERSION
@@ -444,7 +489,8 @@ def command_init_latent(args):
         raise ValueError("--corpus-hash does not match the frozen manifest")
     torch.manual_seed(args.seed)
     revision = args.model_revision or config["model"]["revision"]
-    prefix = load_qwen(args.model, length=args.length, dtype=args.dtype,
+    snapshot = _resolve_model_files(args.model, revision)
+    prefix = load_qwen(snapshot["resolved_path"], length=args.length, dtype=args.dtype,
                        revision=revision, device=args.device, init_std=config["latent"]["init_std"])
     audit_path = getattr(args, "contamination_audit", None)
     if not audit_path:
@@ -459,6 +505,8 @@ def command_init_latent(args):
                     config, args, "random_latent", args.corpus_hash,
                     dependencies=[("corpus_manifest", manifest_path), ("contamination_audit", audit_path)],
                     tokenizer_id=model_identity, tokenizer_revision=revision,
+                    model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                    tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"],
                     contamination_audit=contamination_attestation(audit)))
     print(json.dumps({"condition": "untrained_random_latent", "length": args.length,
                       "seed": args.seed, "output": args.output,
@@ -550,6 +598,7 @@ def command_merge_records(args):
     if indexes != set(range(args.expected_workers)):
         raise ValueError("missing worker shard index")
     comparable = ("protocol_config_hash", "model_id", "model_revision",
+                  "model_snapshot_sha256", "tokenizer_snapshot_sha256",
                   "corpus_hash", "tool_schema_hash")
     if any(any(meta[field] != metas[0][field] for field in comparable) for meta in metas[1:]):
         raise ValueError("worker shard corpus/config/model/tool mismatch")
@@ -582,6 +631,7 @@ def command_validate_conditions(args):
     from .search import TOOL_SCHEMA_HASH
     import torch
     corpus_hash, model_cfg = manifest["corpus_hash"], config["model"]
+    snapshot_pairs = set()
     latent_payloads = {}
     for name, path in (("random_latent_L64", args.random_latent),
                        ("trained_latent_L64", args.trained_latent)):
@@ -594,6 +644,11 @@ def command_validate_conditions(args):
                             protocol_config_hash=config["protocol_config_hash"],
                             corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH,
                             tokenizer_id=model_cfg["id"], tokenizer_revision=model_cfg["revision"])
+        metadata = payload["provenance"]
+        pair = (metadata.get("model_snapshot_sha256"), metadata.get("tokenizer_snapshot_sha256"))
+        if not all(pair):
+            raise ValueError(f"{name} lacks actual model/tokenizer snapshot identity")
+        snapshot_pairs.add(pair)
         if (payload.get("length") != config["latent"]["length"]
                 or payload["prefix"].shape[0] != config["latent"]["length"]
                 or payload.get("hidden_size") != payload["prefix"].shape[1]):
@@ -609,12 +664,20 @@ def command_validate_conditions(args):
                                          protocol_config_hash=config["protocol_config_hash"],
                                          corpus_hash=corpus_hash, tool_schema_hash=TOOL_SCHEMA_HASH,
                                          tokenizer_id=model_cfg["id"], tokenizer_revision=model_cfg["revision"])
+        metadata = payload["provenance"]
+        pair = (metadata.get("model_snapshot_sha256"), metadata.get("tokenizer_snapshot_sha256"))
+        if not all(pair):
+            raise ValueError(f"{name} lacks actual model/tokenizer snapshot identity")
+        snapshot_pairs.add(pair)
         assert_frozen_payload(payload)
         if payload.get("token_budget") != budget:
             raise ValueError(f"{name} budget mismatch")
         if payload.get("token_counter") != f"{model_cfg['id']}@{model_cfg['revision']}":
             raise ValueError(f"{name} tokenizer/revision mismatch")
         peek_payloads[name] = {"token_budget": budget, "map_text_tokens": payload.get("map_text_tokens")}
+    if len(snapshot_pairs) != 1:
+        raise ValueError("memory conditions bind different model/tokenizer snapshots")
+    model_snapshot_sha256, tokenizer_snapshot_sha256 = next(iter(snapshot_pairs))
     tools_cfg, root_cfg = config["tools"], config["root_agent"]
     from .evaluation import budget_from_config
     profile = budget_from_config(config, getattr(args, "budget", None))
@@ -643,7 +706,9 @@ def command_validate_conditions(args):
                                 ("trained_latent", args.trained_latent),
                                 ("offline_peek_64", args.peek64),
                                 ("offline_peek_1024", args.peek1024)],
-                  tokenizer_id=model_cfg["id"], tokenizer_revision=model_cfg["revision"])}
+                  tokenizer_id=model_cfg["id"], tokenizer_revision=model_cfg["revision"],
+                  model_snapshot_sha256=model_snapshot_sha256,
+                  tokenizer_snapshot_sha256=tokenizer_snapshot_sha256)}
     write_json(args.output, report); print(json.dumps(report, indent=2))
 
 
@@ -680,6 +745,9 @@ def command_root_agent(args):
     model_path = args.model or config["model"]["id"]
     model_identity = config["model"]["id"]
     model_revision = args.model_revision or config["model"]["revision"]
+    snapshot = _resolve_model_files(model_path, model_revision,
+                                    local_files_only=args.local_files_only)
+    resolved_model_path = snapshot["resolved_path"]
     latent = None; map_text = ""; memory_kind = "none"
     if args.condition in {"random_latent_L64", "trained_latent_L64"}:
         if not args.memory:
@@ -697,13 +765,15 @@ def command_root_agent(args):
                             protocol_config_hash=config["protocol_config_hash"],
                             corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH,
                             tokenizer_id=model_identity,
-                            tokenizer_revision=model_revision)
+                            tokenizer_revision=model_revision,
+                            model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                            tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
         if checkpoint_meta.get("length") != config["latent"]["length"]:
             raise ValueError("latent length mismatch")
         if args.condition.startswith("random") and not isinstance(checkpoint_meta.get("seed"), int):
             raise ValueError("random latent artifact lacks a reproducible seed")
         memory_kind = "latent"
-        latent = load_qwen(model_path, length=config["latent"]["length"], dtype=config["model"]["dtype"],
+        latent = load_qwen(resolved_model_path, length=config["latent"]["length"], dtype=config["model"]["dtype"],
                            revision=model_revision, device=args.device,
                            init_std=config["latent"]["init_std"])
         latent_meta = latent.load(args.memory, expected_corpus_hash=manifest["corpus_hash"],
@@ -711,7 +781,9 @@ def command_root_agent(args):
                                   expected_model_revision=model_revision,
                                   expected_protocol_config_hash=config["protocol_config_hash"],
                                   expected_tokenizer_id=model_identity,
-                                  expected_tokenizer_revision=model_revision)
+                                  expected_tokenizer_revision=model_revision,
+                                  expected_model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                                  expected_tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
         validate_provenance(latent_meta.get("provenance", {}),
                             artifact_type=("random_latent" if args.condition.startswith("random")
                                            else "trained_latent"),
@@ -720,7 +792,9 @@ def command_root_agent(args):
                             protocol_config_hash=config["protocol_config_hash"],
                             corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH,
                             tokenizer_id=model_identity,
-                            tokenizer_revision=model_revision)
+                            tokenizer_revision=model_revision,
+                            model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                            tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
         model, tokenizer = latent.model, latent.tokenizer
     else:
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -736,18 +810,19 @@ def command_root_agent(args):
                                           corpus_hash=manifest["corpus_hash"],
                                           tool_schema_hash=TOOL_SCHEMA_HASH,
                                           tokenizer_id=model_identity,
-                                          tokenizer_revision=model_revision)
+                                          tokenizer_revision=model_revision,
+                                          model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                                          tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
             from .isolation import assert_frozen_payload
             assert_frozen_payload(peek)
             if peek.get("token_budget") != expected_budget:
                 raise ValueError("PEEK map token budget is incompatible with condition")
             if peek.get("token_counter") != f"{model_identity}@{model_revision}":
                 raise ValueError("PEEK tokenizer/model revision mismatch")
-        tokenizer = AutoTokenizer.from_pretrained(model_path, revision=model_revision,
-                                                  local_files_only=args.local_files_only)
-        model = AutoModelForCausalLM.from_pretrained(model_path, revision=model_revision,
+        tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, local_files_only=True)
+        model = AutoModelForCausalLM.from_pretrained(resolved_model_path,
                                                      device_map=args.device, dtype=config["model"]["dtype"],
-                                                     local_files_only=args.local_files_only)
+                                                     local_files_only=True)
         for parameter in model.parameters(): parameter.requires_grad_(False)
         model.eval()
         if args.condition.startswith("offline_peek"):
@@ -775,7 +850,9 @@ def command_root_agent(args):
         config, args, "synthetic_root_agent_run", manifest["corpus_hash"],
         dependencies=[("corpus_manifest", args.manifest),
                       *([("memory", args.memory)] if args.memory else [])],
-        tokenizer_id=model_identity, tokenizer_revision=model_revision)
+        tokenizer_id=model_identity, tokenizer_revision=model_revision,
+        model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+        tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
     write_json(args.output, report); print(json.dumps(report, indent=2))
 
 
@@ -804,6 +881,9 @@ def command_evaluate(args):
     revision = args.model_revision or model_cfg["revision"]
     model_path = args.model or model_cfg["id"]
     model_identity = model_cfg["id"]
+    snapshot = _resolve_model_files(model_path, revision,
+                                    local_files_only=args.local_files_only)
+    resolved_model_path = snapshot["resolved_path"]
     limits = SearchLimits(tools_cfg["max_results"], tools_cfg["max_bytes_per_hit"],
                           tools_cfg["max_total_bytes"], tools_cfg["grep_context_lines"],
                           tools_cfg["max_query_chars"])
@@ -820,7 +900,9 @@ def command_evaluate(args):
                                               protocol_config_hash=config["protocol_config_hash"],
                                               corpus_hash=manifest["corpus_hash"],
                                               tool_schema_hash=TOOL_SCHEMA_HASH,
-                                              tokenizer_id=model_identity, tokenizer_revision=revision)
+                                              tokenizer_id=model_identity, tokenizer_revision=revision,
+                                              model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                                              tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
             assert_frozen_payload(payload)
             if payload.get("token_budget") != expected_budgets[name]:
                 raise ValueError(f"{name} map token budget mismatch")
@@ -836,7 +918,9 @@ def command_evaluate(args):
                                 artifact_path=path, model_id=model_identity, model_revision=revision,
                                 protocol_config_hash=config["protocol_config_hash"],
                                 corpus_hash=manifest["corpus_hash"], tool_schema_hash=TOOL_SCHEMA_HASH,
-                                tokenizer_id=model_identity, tokenizer_revision=revision)
+                                tokenizer_id=model_identity, tokenizer_revision=revision,
+                                model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                                tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
             if (payload.get("length") != config["latent"]["length"]
                     or payload["prefix"].shape[0] != config["latent"]["length"]
                     or payload.get("hidden_size") != payload["prefix"].shape[1]):
@@ -874,11 +958,10 @@ def command_evaluate(args):
     # next condition/budget runner is built.
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from .latent import SoftPrefixLM
-    tokenizer = AutoTokenizer.from_pretrained(model_path, revision=revision,
-                                              local_files_only=args.local_files_only)
-    model = AutoModelForCausalLM.from_pretrained(model_path, revision=revision,
+    tokenizer = AutoTokenizer.from_pretrained(resolved_model_path, local_files_only=True)
+    model = AutoModelForCausalLM.from_pretrained(resolved_model_path,
                                                  device_map=args.device, dtype=model_cfg["dtype"],
-                                                 local_files_only=args.local_files_only)
+                                                 local_files_only=True)
     for parameter in model.parameters():
         parameter.requires_grad_(False)
     model.eval()
@@ -892,7 +975,9 @@ def command_evaluate(args):
             latent.load(condition.memory_path, expected_corpus_hash=manifest["corpus_hash"],
                         expected_model_id=model_identity, expected_model_revision=revision,
                         expected_protocol_config_hash=config["protocol_config_hash"],
-                        expected_tokenizer_id=model_identity, expected_tokenizer_revision=revision)
+                        expected_tokenizer_id=model_identity, expected_tokenizer_revision=revision,
+                        expected_model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                        expected_tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
         elif condition.memory_kind == "map":
             map_text = memory_payloads[name]["map_text"]
         tools = CodingTools(manifest["root"], manifest["units"], limits, manifest=manifest)
@@ -907,12 +992,18 @@ def command_evaluate(args):
                     *[(name, path) for name, path in memory_paths.items()]]
     provenance = _provenance(config, args, "evaluation_result", manifest["corpus_hash"],
                              dependencies=dependencies, tokenizer_id=model_identity,
-                             tokenizer_revision=revision)
+                             tokenizer_revision=revision,
+                             model_snapshot_sha256=snapshot["model_snapshot_sha256"],
+                             tokenizer_snapshot_sha256=snapshot["tokenizer_snapshot_sha256"])
     try:
         report = run_evaluation(examples, runner_factory=runner_factory,
                                 budgets=budget_profiles, scorer=load_judge(args.judge),
                                 output=args.output, provenance=provenance,
-                                dataset_snapshot=dataset_snapshot)
+                                dataset_snapshot=dataset_snapshot,
+                                expertise_anchor_tokens=float(config["evaluation"].get(
+                                    "expertise", {}).get("anchor_generated_tokens", 3000)),
+                                require_expertise_budget_coverage=bool(config["evaluation"].get(
+                                    "expertise", {}).get("require_anchor_coverage", True)))
     finally:
         # These are the only long-lived model references.  Condition agents are
         # already gone before this final cleanup.

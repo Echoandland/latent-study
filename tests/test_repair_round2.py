@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from latent_study.agent import parse_tool_actions
-from latent_study.artifacts import (ArtifactCompatibilityError, provenance,
+from latent_study.artifacts import (ARTIFACT_SCHEMA_VERSION, ArtifactCompatibilityError, provenance,
                                     read_sidecar, write_sidecar)
 from latent_study.corpus import (CorpusIntegrityError, build_manifest,
                                  verify_manifest_against_live_corpus)
@@ -114,7 +114,7 @@ def test_contamination_audit_clean_id_and_question_collision(tmp_path):
     from latent_study.cli import _read_contamination_audit
     from latent_study.io import write_json
     audit_path = tmp_path / "audit.json"
-    audit_payload = {"artifact_schema_version": 3, "status": "pass",
+    audit_payload = {"artifact_schema_version": ARTIFACT_SCHEMA_VERSION, "status": "pass",
                      "phase": "audit_complete", "evaluation_inputs_seen": True,
                      "provenance": provenance(
                          artifact_type="evaluation_contamination_audit",
@@ -129,7 +129,7 @@ def test_contamination_audit_clean_id_and_question_collision(tmp_path):
 
 
 def test_frozen_payload_requires_passing_contamination_attestation():
-    base = {"artifact_schema_version": 3, "phase": "frozen_before_evaluation",
+    base = {"artifact_schema_version": ARTIFACT_SCHEMA_VERSION, "phase": "frozen_before_evaluation",
             "evaluation_inputs_seen": False,
             "provenance": {"artifact_sha256": "a" * 64}}
     with pytest.raises(IsolationError):
@@ -238,7 +238,8 @@ def test_evaluation_harness_emits_five_conditions_and_compute_artifact(tmp_path)
     output = tmp_path / "evaluation.json"
     payload = run_evaluation(examples, runners, budget=budget,
                              scorer=lambda _example, _result: {"strict": 1, "lenient": 1},
-                             output=output, provenance=_metadata("evaluation_result"))
+                             output=output, provenance=_metadata("evaluation_result"),
+                             require_expertise_budget_coverage=False)
     assert payload["conditions"] == list(MVP_CONDITIONS)
     assert len(payload["results"]) == 5
     assert payload["results"][0]["compute"]["input_tokens"] == 10

@@ -15,7 +15,7 @@
   "seed": 17,
   "latent": {"length": 64, "init_std": 0.02},
   "candidate_generation": {"n": 4, "source": "frozen_base_without_latent", "do_sample": true,
-    "temperature": 0.8, "top_p": 0.95, "max_new_tokens": 96},
+    "temperature": 0.8, "top_p": 0.95, "max_new_tokens": 96, "dtype": "auto"},
   "tools": {"interface": "pinned_local_coding_tools_v2", "max_results": 5,
     "max_bytes_per_hit": 1600, "max_total_bytes": 6000, "grep_context_lines": 4,
     "max_query_chars": 256},
@@ -24,7 +24,8 @@
     "within_document_positional_distance_enabled": false
   },
   "objective": {"beta": 1.0, "preference_delta": 0.25, "rank_margin": 1.0,
-    "query_weight": 1.0, "ranking_weight": 1.0, "gradient_balance": "rms_norm_sum"},
+    "query_weight": 1.0, "ranking_weight": 1.0, "gradient_balance": "rms_norm_sum",
+    "relevant_label": "A", "irrelevant_label": "B"},
   "replay": {"fraction": 0.5, "source_stratified": true, "keep_full_bank": true},
   "training": {"optimizer": "AdamW", "learning_rate": 0.001, "weight_decay": 0.01,
     "steps_per_source": 2, "batch_size": 2,
@@ -41,9 +42,10 @@
     "default_budget": "max5",
     "budgets": {
       "direct": {"max_tool_calls": 0, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
-      "max5": {"max_tool_calls": 5, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
-      "max20": {"max_tool_calls": 20, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
-      "exact20": {"max_tool_calls": 20, "max_output_tokens": 1000, "max_observation_bytes": 6000, "exact_tool_calls": 20, "allow_early_return": false}
-    }
+      "max5": {"max_tool_calls": 5, "max_output_tokens": 3000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
+      "max20": {"max_tool_calls": 20, "max_output_tokens": 6000, "max_observation_bytes": 6000, "exact_tool_calls": null, "allow_early_return": true},
+      "exact20": {"max_tool_calls": 20, "max_output_tokens": 10000, "max_observation_bytes": 6000, "exact_tool_calls": 20, "allow_early_return": false}
+    },
+    "expertise": {"anchor_generated_tokens": 3000, "compute_axis": "configured_generated_token_budget_per_example", "require_anchor_coverage": true}
   }
 }

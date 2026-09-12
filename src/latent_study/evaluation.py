@@ -26,6 +26,7 @@ MVP_CONDITIONS = (
     "no_study", "random_latent_L64", "trained_latent_L64",
     "offline_peek_64", "offline_peek_1024",
 )
+EXPERTISE_ANCHOR_TOKENS = 3000.0
 
 
 @dataclass(frozen=True)
@@ -147,7 +148,24 @@ def budgets_from_config(config: Mapping[str, Any], names: Iterable[str] | None =
         raise ValueError("at least one evaluation budget must be selected")
     if len(set(selected)) != len(selected):
         raise ValueError("evaluation budget names must not be duplicated")
-    return tuple(budget_from_config(config, name) for name in selected)
+    profiles = tuple(budget_from_config(config, name) for name in selected)
+    expertise_config = config.get("evaluation", {}).get("expertise", {})
+    if expertise_config.get("require_anchor_coverage", False):
+        validate_expertise_budget_coverage(
+            profiles, float(expertise_config.get("anchor_generated_tokens", EXPERTISE_ANCHOR_TOKENS)))
+    return profiles
+
+
+def validate_expertise_budget_coverage(
+        profiles: Iterable[EvaluationBudgetProfile],
+        anchor_tokens: float = EXPERTISE_ANCHOR_TOKENS) -> None:
+    """Reject a curve whose configured per-example generation caps miss the anchor."""
+    values = [profile.max_output_tokens for profile in profiles]
+    if not values or not math.isfinite(anchor_tokens) or anchor_tokens <= 0:
+        raise ValueError("expertise requires a positive finite generated-token anchor")
+    if max(values) < anchor_tokens:
+        raise ValueError(
+            f"evaluation generated-token budgets do not reach the {anchor_tokens:g}-token expertise anchor")
 
 
 def load_judge(spec: str | None) -> Callable | None:
@@ -235,14 +253,14 @@ def _mean_or_none(values: Iterable[float | None]) -> float | None:
     return statistics.fmean(clean) if clean else None
 
 
-def _expertise(points: list[tuple[float, float]]) -> tuple[float | None, str | None, list[tuple[float, float]]]:
-    eligible = [(tokens, score) for tokens, score in points if tokens >= 3000]
+def _expertise(points: list[tuple[float, float]], anchor_tokens: float) -> tuple[float | None, str | None, list[tuple[float, float]]]:
+    eligible = [(tokens, score) for tokens, score in points if tokens >= anchor_tokens]
     if not points:
-        return None, "no budget-level aggregate judge score with measured mean generated tokens", []
+        return None, "no budget-level aggregate judge score", []
     if not eligible:
-        return None, "no budget-level aggregate point reaches the 3,000-token expertise anchor", []
+        return None, f"no budget-level aggregate point reaches the {anchor_tokens:g}-token expertise anchor", []
     from .metrics import expertise
-    return expertise(eligible), None, eligible
+    return expertise(eligible, anchor_tokens=anchor_tokens), None, eligible
 
 
 def _sum_or_none(values: Iterable[float | None]) -> float | None:
@@ -309,7 +327,9 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
                    scorer: Callable | None = None,
                    conditions: Iterable[str] = MVP_CONDITIONS, output: str | Path | None = None,
                    provenance: dict | None = None, fair_conditions: list[Any] | None = None,
-                   dataset_snapshot: dict | None = None) -> dict:
+                   dataset_snapshot: dict | None = None,
+                   expertise_anchor_tokens: float = EXPERTISE_ANCHOR_TOKENS,
+                   require_expertise_budget_coverage: bool = True) -> dict:
     """Run all MVP conditions and emit an expertise-ready structured artifact."""
     selected = tuple(conditions)
     if selected != MVP_CONDITIONS:
@@ -323,6 +343,8 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
         raise ValueError("evaluation requires at least one compute budget")
     if len({profile.name for profile in profiles}) != len(profiles):
         raise ValueError("evaluation budget names must be unique")
+    if require_expertise_budget_coverage:
+        validate_expertise_budget_coverage(profiles, expertise_anchor_tokens)
     if fair_conditions is not None:
         from .agent import assert_fair_conditions
         assert_fair_conditions(fair_conditions)
@@ -386,19 +408,20 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
                     ("strict", strict, points_strict, curve_strict),
                     ("lenient", lenient, points_lenient, curve_lenient)):
                 point = {"budget_profile": profile.name, "examples": len(condition_rows),
-                         "compute_quantity": "mean_generated_tokens_per_example",
-                         "mean_generated_tokens_per_example": generated_mean,
+                         "compute_quantity": "configured_generated_token_budget_per_example",
+                         "generated_token_budget_per_example": profile.max_output_tokens,
+                         "mean_actual_generated_tokens_per_example": generated_mean,
                          "total_generated_tokens": compute_aggregate["generated_tokens"]["total"],
                          "aggregate_score": score_value, "all_examples_budget_valid": all_valid}
                 curve.append(point)
-                if generated_mean is not None and score_value is not None and all_valid:
-                    point_list.append((float(generated_mean), float(score_value)))
-        strict_expertise, strict_reason, strict_inputs = _expertise(points_strict)
-        lenient_expertise, lenient_reason, lenient_inputs = _expertise(points_lenient)
+                if score_value is not None and all_valid:
+                    point_list.append((float(profile.max_output_tokens), float(score_value)))
+        strict_expertise, strict_reason, strict_inputs = _expertise(points_strict, expertise_anchor_tokens)
+        lenient_expertise, lenient_reason, lenient_inputs = _expertise(points_lenient, expertise_anchor_tokens)
         summaries[condition] = {
             "budgets": budget_summaries,
             "performance_vs_compute": {
-                "compute_quantity": "mean_generated_tokens_per_example",
+                "compute_quantity": "configured_generated_token_budget_per_example",
                 "strict": curve_strict, "lenient": curve_lenient},
             "expertise_strict": strict_expertise, "expertise_lenient": lenient_expertise,
             "expertise_input_points": {"strict": strict_inputs, "lenient": lenient_inputs},
@@ -421,8 +444,8 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
         "evaluation_dataset_snapshot": dataset_snapshot,
         "results": records, "condition_summaries": summaries,
         "expertise_metric": {"definition": "best-so-far staircase weighted AUC",
-                              "anchor_generated_tokens": 3000,
-                              "input_compute_quantity": "mean generated tokens per example at each evaluation budget",
+                              "anchor_generated_tokens": expertise_anchor_tokens,
+                              "input_compute_quantity": "configured generated-token budget per example",
                               "input_performance_quantity": "benchmark mean strict/lenient score at that budget",
                               "below_anchor_points": "reported in the curve but excluded from expertise integration",
                               "manual_points_required": False},
@@ -431,6 +454,7 @@ def run_evaluation(examples: list[EvaluationExample], condition_runners: Mapping
         "metric_definitions": {
             "input_tokens": "serialized root prompt tokens including textual map when present; latent prefix reported separately",
             "generated_tokens": "model output tokens generated by the root agent",
+            "expertise_compute_axis": "configured per-example generated-token cap; actual mean/total generation is reported separately",
             "tool_calls": "typed tool actions attempted",
             "observation_bytes": "UTF-8 bytes after final tool-output truncation",
             "total_latency_seconds": "per-example wall-clock runner latency; backend measurement preferred and harness timer used otherwise",
